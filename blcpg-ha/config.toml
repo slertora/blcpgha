@@ -1,0 +1,105 @@
+[postgresql]
+host = "localhost"
+port = 5432
+user = "postgres"
+password = "your_password_here"
+database = "postgres"
+data_dir = "/var/lib/postgresql/data"
+bin_dir = "/usr/bin"
+
+[api]
+host = "0.0.0.0"
+port = 8009
+auth_token = "your_auth_token_here"
+
+[cluster]
+enabled = true
+node_id = "node-1"
+cluster_port = 9601
+peers = []
+heartbeat_interval = "5s"
+timeout = "10s"
+
+[raft]
+bind_addr = "127.0.0.1:9701"
+node_id = "node-1"
+election_timeout_ms = 1000
+heartbeat_interval_ms = 100
+peers = []
+
+[locker]
+backend = "raft"
+ttl = 30
+
+[logging]
+level = "info"
+format = "text"
+output = "stdout"
+
+[redis]
+addrs = ["localhost:6379"]
+username = ""
+password = ""
+db = 0
+sentinel = false
+master_name = ""
+cluster = false
+tls_enable = false
+timeout = 5
+
+[health]
+enabled = true
+interval = "2s"
+timeout = "5s"
+auto_promote = true
+
+[critical_failover]
+enabled = true
+health_check_interval = "2s"
+failover_timeout = "30s"
+verification_attempts = 3
+min_health_score = 80.0
+max_lag_bytes = 104857600
+fencing_timeout = "10s"
+rollback_timeout = "15s"
+
+[metrics]
+enabled = true
+prometheus = ":9090"
+
+[vip]
+type = "haproxy"
+enabled = true
+fallback_enabled = true
+fallback_order = ["haproxy", "proxysql", "keepalived", "aws_elastic_ip", "aws_elb"]
+
+[vip.haproxy]
+api_url = "http://localhost:5555/v2"
+username = "admin"
+password = "admin"
+frontend_name = "postgres_frontend"
+backend_name = "postgres_backend"
+server_name = "postgres_server"
+timeout = "5s"
+retry_attempts = 3
+
+[vip.proxysql]
+api_url = "http://localhost:6070"
+username = "admin"
+password = "admin"
+hostgroup_id = 10
+server_id = 1
+timeout = "5s"
+retry_attempts = 3
+
+[vip.keepalived]
+config_file = "/etc/keepalived/keepalived.conf"
+interface = "eth0"
+virtual_ip = "192.168.1.100"
+virtual_router_id = 51
+priority = 100
+advert_int = 1
+auth_pass = "blcpg_ha_pass"
+nopreempt = false
+timeout = "5s"
+retry_attempts = 3 

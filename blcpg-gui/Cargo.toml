@@ -1,0 +1,80 @@
+[package]
+name = "blcpg-gui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Santiago Lertora <santiagolertora@gmail.com>"]
+license = "MIT"
+description = "BLC PostgreSQL HA - Web GUI for cluster management"
+repository = "https://github.com/santiagolertora/blcpgha"
+
+[dependencies]
+# Web framework
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP client for API calls
+reqwest = { version = "0.11", features = ["json"] }
+
+# Configuration
+config = "0.14"
+toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Async traits
+async-trait = "0.1"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# WebSocket support
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+
+# Template engine (for server-side rendering)
+askama = "0.12"
+
+# Static file serving
+mime_guess = "2.0"
+
+# Environment variables
+dotenv = "0.15"
+
+# CLI argument parsing
+clap = { version = "4.0", features = ["derive"] }
+
+# Colored output
+colored = "2.0"
+
+# Human-readable durations
+humantime = "2.1"
+
+# Metrics
+prometheus-client = "0.22"
+
+# Database (for storing GUI state)
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
+
+# WebSocket for real-time updates
+axum-extra = { version = "0.9", features = ["typed-header"] }
+
+# Static file embedding
+rust-embed = "8.0"
+
+[dev-dependencies]
+tokio-test = "0.4"

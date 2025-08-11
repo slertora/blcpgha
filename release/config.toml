@@ -1,0 +1,122 @@
+[postgresql]
+host = "localhost"
+port = 5432
+user = "postgres"
+password = "your_password_here"
+database = "postgres"
+data_dir = "/var/lib/postgresql/data"
+bin_dir = "/usr/bin"
+
+[api]
+host = "0.0.0.0"
+port = 8009
+auth_token = "your_auth_token_here"
+
+[cluster]
+enabled = true
+node_id = "node-1"
+cluster_port = 9601
+peers = []
+heartbeat_interval = "5s"
+timeout = "10s"
+
+[raft]
+bind_addr = "127.0.0.1:9701"
+peers = []
+
+[locker]
+backend = "raft"
+ttl = 30
+
+[logging]
+level = "info"
+format = "text"
+output = "stdout"
+
+[redis]
+addrs = ["localhost:6379"]
+username = ""
+password = ""
+db = 0
+sentinel = false
+master_name = ""
+cluster = false
+tls_enable = false
+timeout = 5
+
+[health]
+enabled = true
+interval = "2s"
+timeout = "5s"
+auto_promote = true
+
+[critical_failover]
+enabled = true
+health_check_interval = "2s"
+failover_timeout = "30s"
+verification_attempts = 3
+min_health_score = 80.0
+max_lag_bytes = 104857600
+fencing_timeout = "10s"
+rollback_timeout = "15s"
+
+[metrics]
+enabled = true
+prometheus = ":9090"
+
+[vip]
+type = "haproxy"
+enabled = true
+fallback_enabled = true
+fallback_order = ["haproxy", "proxysql", "keepalived", "aws_elastic_ip", "aws_elb"]
+
+[vip.haproxy]
+api_url = "http://localhost:5555/v2"
+username = "admin"
+password = "admin"
+frontend_name = "postgres_frontend"
+backend_name = "postgres_backend"
+server_name = "postgres_server"
+timeout = "5s"
+retry_attempts = 3
+
+[vip.proxysql]
+api_url = "http://localhost:6070"
+username = "admin"
+password = "admin"
+hostgroup_id = 10
+server_id = 1
+timeout = "5s"
+retry_attempts = 3
+
+[vip.keepalived]
+config_file = "/etc/keepalived/keepalived.conf"
+interface = "eth0"
+virtual_ip = "192.168.1.100"
+virtual_router_id = 51
+priority = 100
+advert_int = 1
+auth_pass = "blcpg_ha_pass"
+nopreempt = false
+timeout = "5s"
+retry_attempts = 3
+
+[vip.aws_elastic_ip]
+region = "us-west-2"
+access_key_id = "AKIAIOSFODNN7EXAMPLE"
+secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+allocation_id = "eipalloc-12345678"
+instance_id = "i-1234567890abcdef0"
+timeout = "30s"
+retry_attempts = 3
+
+[vip.aws_elb]
+region = "us-west-2"
+access_key_id = "AKIAIOSFODNN7EXAMPLE"
+secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+load_balancer_arn = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-load-balancer/1234567890abcdef"
+target_group_arn = "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/my-target-group/1234567890abcdef"
+instance_id = "i-1234567890abcdef0"
+port = 5432
+timeout = "30s"
+retry_attempts = 3 

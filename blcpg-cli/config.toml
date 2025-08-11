@@ -1,0 +1,6 @@
+[api]
+host = "localhost"
+port = 8009
+auth_token = "your_auth_token_here"
+timeout = "30s"
+retry_attempts = 3 
