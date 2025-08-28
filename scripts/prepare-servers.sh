@@ -5,11 +5,24 @@
 
 set -e
 
-# Server configurations
-declare -A SERVERS
-SERVERS[postgre1]="187.33.155.182"
-SERVERS[postgresql2]="187.33.144.18"
-SERVERS[postgresql3]="187.33.147.49"
+# Server configurations (compatible with older bash versions)
+SERVERS_postgre1="187.33.155.182"
+SERVERS_postgresql2="187.33.144.18"
+SERVERS_postgresql3="187.33.147.49"
+
+get_server_ip() {
+    local server_name=$1
+    case $server_name in
+        "postgre1") echo "$SERVERS_postgre1" ;;
+        "postgresql2") echo "$SERVERS_postgresql2" ;;
+        "postgresql3") echo "$SERVERS_postgresql3" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_all_servers() {
+    echo "postgre1 postgresql2 postgresql3"
+}
 
 SSH_KEY="~/.ssh/binlogic"
 SSH_USER="root"
@@ -39,7 +52,7 @@ warning() {
 
 prepare_server() {
     local server_name=$1
-    local server_ip=${SERVERS[$server_name]}
+    local server_ip=$(get_server_ip "$server_name")
     
     log "Preparing server $server_name ($server_ip)..."
     
@@ -207,7 +220,7 @@ EOF
 
 test_server_connectivity() {
     local server_name=$1
-    local server_ip=${SERVERS[$server_name]}
+    local server_ip=$(get_server_ip "$server_name")
     
     log "Testing connectivity to $server_name ($server_ip)..."
     
@@ -223,8 +236,8 @@ test_server_connectivity() {
 run_health_checks() {
     log "Running health checks on all servers..."
     
-    for server_name in "${!SERVERS[@]}"; do
-        local server_ip=${SERVERS[$server_name]}
+    for server_name in $(get_all_servers); do
+        local server_ip=$(get_server_ip "$server_name")
         
         log "Health check for $server_name ($server_ip):"
         ssh -i $SSH_KEY $SSH_USER@$server_ip '/opt/blcpgha/scripts/server-health.sh' || warning "Health check failed for $server_name"
@@ -272,12 +285,12 @@ main() {
         "prepare")
             if [ "$target" == "all" ] || [ -z "$target" ]; then
                 log "Preparing all servers..."
-                for server_name in "${!SERVERS[@]}"; do
+                for server_name in $(get_all_servers); do
                     prepare_server "$server_name"
                     echo ""
                 done
                 success "All servers prepared successfully!"
-            elif [ -n "${SERVERS[$target]}" ]; then
+            elif [ -n "$(get_server_ip "$target")" ]; then
                 prepare_server "$target"
             else
                 error "Unknown server: $target"
@@ -288,20 +301,20 @@ main() {
         "test")
             if [ "$target" == "all" ] || [ -z "$target" ]; then
                 log "Testing connectivity to all servers..."
-                failed_servers=()
-                for server_name in "${!SERVERS[@]}"; do
+                failed_servers=""
+                for server_name in $(get_all_servers); do
                     if ! test_server_connectivity "$server_name"; then
-                        failed_servers+=("$server_name")
+                        failed_servers="$failed_servers $server_name"
                     fi
                 done
                 
-                if [ ${#failed_servers[@]} -eq 0 ]; then
+                if [ -z "$failed_servers" ]; then
                     success "All servers are reachable!"
                 else
-                    error "Failed to connect to: ${failed_servers[*]}"
+                    error "Failed to connect to:$failed_servers"
                     exit 1
                 fi
-            elif [ -n "${SERVERS[$target]}" ]; then
+            elif [ -n "$(get_server_ip "$target")" ]; then
                 test_server_connectivity "$target"
             else
                 error "Unknown server: $target"
@@ -312,8 +325,8 @@ main() {
         "health")
             if [ "$target" == "all" ] || [ -z "$target" ]; then
                 run_health_checks
-            elif [ -n "${SERVERS[$target]}" ]; then
-                local server_ip=${SERVERS[$target]}
+            elif [ -n "$(get_server_ip "$target")" ]; then
+                local server_ip=$(get_server_ip "$target")
                 log "Health check for $target ($server_ip):"
                 ssh -i $SSH_KEY $SSH_USER@$server_ip '/opt/blcpgha/scripts/server-health.sh'
             else

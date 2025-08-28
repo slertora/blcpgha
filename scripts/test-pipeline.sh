@@ -5,11 +5,24 @@
 
 set -e
 
-# Server configurations
-declare -A SERVERS
-SERVERS[postgre1]="187.33.155.182"
-SERVERS[postgresql2]="187.33.144.18"
-SERVERS[postgresql3]="187.33.147.49"
+# Server configurations (compatible with older bash versions)
+SERVERS_postgre1="187.33.155.182"
+SERVERS_postgresql2="187.33.144.18"
+SERVERS_postgresql3="187.33.147.49"
+
+get_server_ip() {
+    local server_name=$1
+    case $server_name in
+        "postgre1") echo "$SERVERS_postgre1" ;;
+        "postgresql2") echo "$SERVERS_postgresql2" ;;
+        "postgresql3") echo "$SERVERS_postgresql3" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_all_servers() {
+    echo "postgre1 postgresql2 postgresql3"
+}
 
 SSH_KEY="~/.ssh/binlogic"
 SSH_USER="root"
@@ -120,24 +133,24 @@ test_git_status() {
 test_server_connectivity() {
     header "🌐 Testing Server Connectivity"
     
-    local failed_servers=()
+    local failed_servers=""
     
-    for server_name in "${!SERVERS[@]}"; do
-        local server_ip=${SERVERS[$server_name]}
+    for server_name in $(get_all_servers); do
+        local server_ip=$(get_server_ip "$server_name")
         log "Testing connection to $server_name ($server_ip)..."
         
         if ssh -i $SSH_KEY -o ConnectTimeout=10 $SSH_USER@$server_ip 'echo "Connection successful"' >/dev/null 2>&1; then
             success "✅ $server_name is reachable"
         else
             error "❌ Cannot connect to $server_name"
-            failed_servers+=("$server_name")
+            failed_servers="$failed_servers $server_name"
         fi
     done
     
-    if [ ${#failed_servers[@]} -eq 0 ]; then
+    if [ -z "$failed_servers" ]; then
         success "All servers are reachable!"
     else
-        error "Failed to connect to: ${failed_servers[*]}"
+        error "Failed to connect to:$failed_servers"
         return 1
     fi
 }
@@ -145,8 +158,8 @@ test_server_connectivity() {
 test_server_health() {
     header "🏥 Testing Server Health"
     
-    for server_name in "${!SERVERS[@]}"; do
-        local server_ip=${SERVERS[$server_name]}
+    for server_name in $(get_all_servers); do
+        local server_ip=$(get_server_ip "$server_name")
         log "Health check for $server_name ($server_ip)..."
         
         if ssh -i $SSH_KEY $SSH_USER@$server_ip 'test -f /opt/blcpgha/scripts/server-health.sh'; then
@@ -161,8 +174,8 @@ test_server_health() {
 test_api_endpoints() {
     header "🔌 Testing API Endpoints"
     
-    for server_name in "${!SERVERS[@]}"; do
-        local server_ip=${SERVERS[$server_name]}
+    for server_name in $(get_all_servers); do
+        local server_ip=$(get_server_ip "$server_name")
         log "Testing API endpoints on $server_name ($server_ip)..."
         
         # Test health endpoint
@@ -170,8 +183,7 @@ test_api_endpoints() {
             success "✅ Health API responding on $server_name"
             
             # Test other endpoints
-            local endpoints=("cluster/status" "nodes" "metrics" "vip/status")
-            for endpoint in "${endpoints[@]}"; do
+            for endpoint in "cluster/status" "nodes" "metrics" "vip/status"; do
                 if curl -s -m 5 "http://$server_ip:8080/api/v1/$endpoint" >/dev/null 2>&1; then
                     success "✅ /$endpoint API responding on $server_name"
                 else
@@ -196,8 +208,8 @@ test_api_endpoints() {
 test_services_status() {
     header "⚙️ Testing Services Status"
     
-    for server_name in "${!SERVERS[@]}"; do
-        local server_ip=${SERVERS[$server_name]}
+    for server_name in $(get_all_servers); do
+        local server_ip=$(get_server_ip "$server_name")
         log "Checking services on $server_name ($server_ip)..."
         
         # Check PostgreSQL

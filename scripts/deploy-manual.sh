@@ -11,11 +11,24 @@
 
 set -e
 
-# Server configurations
-declare -A SERVERS
-SERVERS[postgre1]="187.33.155.182"
-SERVERS[postgresql2]="187.33.144.18"
-SERVERS[postgresql3]="187.33.147.49"
+# Server configurations (compatible with older bash versions)
+SERVERS_postgre1="187.33.155.182"
+SERVERS_postgresql2="187.33.144.18"
+SERVERS_postgresql3="187.33.147.49"
+
+get_server_ip() {
+    local server_name=$1
+    case $server_name in
+        "postgre1") echo "$SERVERS_postgre1" ;;
+        "postgresql2") echo "$SERVERS_postgresql2" ;;
+        "postgresql3") echo "$SERVERS_postgresql3" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_all_servers() {
+    echo "postgre1 postgresql2 postgresql3"
+}
 
 SSH_KEY="~/.ssh/binlogic"
 SSH_USER="root"
@@ -213,7 +226,7 @@ EOF
 deploy_to_server() {
     local server_name=$1
     local action=$2
-    local server_ip=${SERVERS[$server_name]}
+    local server_ip=$(get_server_ip "$server_name")
     
     if [ -z "$server_ip" ]; then
         error "Unknown server: $server_name"
@@ -339,7 +352,7 @@ main() {
     
     if [ "$server" == "all" ]; then
         log "Deploying to all servers..."
-        for server_name in "${!SERVERS[@]}"; do
+        for server_name in $(get_all_servers); do
             deploy_to_server "$server_name" "$action"
             echo ""
         done
