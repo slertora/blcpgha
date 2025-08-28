@@ -3,15 +3,15 @@
 
 use crate::client::{ApiClientTrait, ClusterStatusResponse, NodeInfo};
 use crate::commands::add_replica;
-use crate::commands::switchover;
-use crate::commands::failover;
-use crate::commands::replication_status;
-use crate::commands::cluster_expand;
 use crate::commands::backup;
-use crate::commands::restore;
-use crate::commands::maintenance;
-use crate::commands::upgrade;
+use crate::commands::cluster_expand;
 use crate::commands::config;
+use crate::commands::failover;
+use crate::commands::maintenance;
+use crate::commands::replication_status;
+use crate::commands::restore;
+use crate::commands::switchover;
+use crate::commands::upgrade;
 use anyhow::Result;
 
 // Mock client for testing
@@ -95,7 +95,8 @@ async fn test_add_replica_demo_mode() -> Result<()> {
 async fn test_add_replica_with_invalid_target() -> Result<()> {
     let client = MockApiClient;
     // This should fail because the target doesn't exist
-    let result = super::add_replica::execute(&client, "invalid-node", "auto", true, false, false).await;
+    let result =
+        super::add_replica::execute(&client, "invalid-node", "auto", true, false, false).await;
     assert!(result.is_err());
     Ok(())
 }
@@ -237,23 +238,24 @@ fn test_generate_new_node_ids_empty_cluster() {
 #[tokio::test]
 async fn test_full_workflow_demo() -> Result<()> {
     let client = MockApiClient;
-    
+
     // 1. Check replication status
     let status_result = super::replication_status::execute(&client, true, false, true).await;
     assert!(status_result.is_ok());
-    
+
     // 2. Add a replica
-    let add_result = super::add_replica::execute(&client, "node-4", "auto", true, false, true).await;
+    let add_result =
+        super::add_replica::execute(&client, "node-4", "auto", true, false, true).await;
     assert!(add_result.is_ok());
-    
+
     // 3. Expand cluster
     let expand_result = super::cluster_expand::execute(&client, 1, true, true, true).await;
     assert!(expand_result.is_ok());
-    
+
     // 4. Perform switchover
     let switchover_result = super::switchover::execute(&client, "node-2", true, false, true).await;
     assert!(switchover_result.is_ok());
-    
+
     Ok(())
 }
 
@@ -290,25 +292,17 @@ async fn test_failover_with_no_healthy_candidates() -> Result<()> {
 #[tokio::test]
 async fn test_backup_demo_mode() {
     let client = MockApiClient;
-    
+
     // Test backup with demo mode
-    let result = backup::execute(
-        &client,
-        "auto",
-        "full",
-        6,
-        false,
-        30,
-        true
-    ).await;
-    
+    let result = backup::execute(&client, "auto", "full", 6, false, 30, true).await;
+
     assert!(result.is_ok(), "Backup command should succeed in demo mode");
 }
 
 #[tokio::test]
 async fn test_restore_demo_mode() {
     let client = MockApiClient;
-    
+
     // Test restore with demo mode
     let result = restore::execute(
         &client,
@@ -317,61 +311,49 @@ async fn test_restore_demo_mode() {
         "full",
         None,
         true,
-        true
-    ).await;
-    
-    assert!(result.is_ok(), "Restore command should succeed in demo mode");
+        true,
+    )
+    .await;
+
+    assert!(
+        result.is_ok(),
+        "Restore command should succeed in demo mode"
+    );
 }
 
 #[tokio::test]
 async fn test_maintenance_demo_mode() {
     let client = MockApiClient;
-    
+
     // Test maintenance with demo mode
-    let result = maintenance::execute(
-        &client,
-        "auto",
-        "vacuum",
-        "light",
-        false,
-        true
-    ).await;
-    
-    assert!(result.is_ok(), "Maintenance command should succeed in demo mode");
+    let result = maintenance::execute(&client, "auto", "vacuum", "light", false, true).await;
+
+    assert!(
+        result.is_ok(),
+        "Maintenance command should succeed in demo mode"
+    );
 }
 
 #[tokio::test]
 async fn test_upgrade_demo_mode() {
     let client = MockApiClient;
-    
+
     // Test upgrade with demo mode
-    let result = upgrade::execute(
-        &client,
-        "auto",
-        "15.3",
-        "rolling",
-        true,
-        true
-    ).await;
-    
-    assert!(result.is_ok(), "Upgrade command should succeed in demo mode");
+    let result = upgrade::execute(&client, "auto", "15.3", "rolling", true, true).await;
+
+    assert!(
+        result.is_ok(),
+        "Upgrade command should succeed in demo mode"
+    );
 }
 
 #[tokio::test]
 async fn test_config_demo_mode() {
     let client = MockApiClient;
-    
+
     // Test config with demo mode
-    let result = config::execute(
-        &client,
-        "node-1",
-        "get",
-        None,
-        None,
-        "config.toml",
-        true
-    ).await;
-    
+    let result = config::execute(&client, "node-1", "get", None, None, "config.toml", true).await;
+
     assert!(result.is_ok(), "Config command should succeed in demo mode");
 }
 
@@ -431,4 +413,4 @@ impl ApiClientTrait for UnhealthyMockApiClient {
     async fn demote_node(&self, _node_id: &str) -> Result<()> {
         Ok(())
     }
-} 
+}

@@ -1,10 +1,10 @@
 // MIT License
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 
+use crate::cluster::ClusterManager;
 use crate::config::ApiConfig;
 use crate::health::HealthChecker;
 use crate::raft::RaftNode;
-use crate::cluster::ClusterManager;
 use anyhow::Result;
 use axum::{
     extract::State,
@@ -13,10 +13,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
-use chrono;
 
 pub struct ApiServer {
     config: ApiConfig,
@@ -143,20 +143,30 @@ impl ApiServer {
         Json(payload): Json<BroadcastHealthRequest>,
     ) -> impl IntoResponse {
         info!("Received health broadcast from node: {}", payload.node_id);
-        
-        match server.cluster_manager.update_peer_health(&payload.node_id, payload.health_status).await {
-            Ok(_) => {
-                (StatusCode::OK, Json(BroadcastResponse {
+
+        match server
+            .cluster_manager
+            .update_peer_health(&payload.node_id, payload.health_status)
+            .await
+        {
+            Ok(_) => (
+                StatusCode::OK,
+                Json(BroadcastResponse {
                     success: true,
                     message: "Health status updated".to_string(),
-                })).into_response()
-            }
+                }),
+            )
+                .into_response(),
             Err(e) => {
                 error!("Failed to update peer health: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(BroadcastResponse {
-                    success: false,
-                    message: e.to_string(),
-                })).into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(BroadcastResponse {
+                        success: false,
+                        message: e.to_string(),
+                    }),
+                )
+                    .into_response()
             }
         }
     }
@@ -166,29 +176,37 @@ impl ApiServer {
         Json(payload): Json<BroadcastRaftRequest>,
     ) -> impl IntoResponse {
         info!("Received Raft broadcast from node: {}", payload.node_id);
-        
-        match server.cluster_manager.update_peer_raft_state(&payload.node_id, payload.raft_state).await {
-            Ok(_) => {
-                (StatusCode::OK, Json(BroadcastResponse {
+
+        match server
+            .cluster_manager
+            .update_peer_raft_state(&payload.node_id, payload.raft_state)
+            .await
+        {
+            Ok(_) => (
+                StatusCode::OK,
+                Json(BroadcastResponse {
                     success: true,
                     message: "Raft state updated".to_string(),
-                })).into_response()
-            }
+                }),
+            )
+                .into_response(),
             Err(e) => {
                 error!("Failed to update peer Raft state: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(BroadcastResponse {
-                    success: false,
-                    message: e.to_string(),
-                })).into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(BroadcastResponse {
+                        success: false,
+                        message: e.to_string(),
+                    }),
+                )
+                    .into_response()
             }
         }
     }
 
-    async fn peers_handler(
-        State(server): State<Arc<ApiServer>>,
-    ) -> impl IntoResponse {
+    async fn peers_handler(State(server): State<Arc<ApiServer>>) -> impl IntoResponse {
         let cluster_state = server.cluster_manager.get_state().await;
-        
+
         (StatusCode::OK, Json(cluster_state)).into_response()
     }
 
@@ -197,13 +215,13 @@ impl ApiServer {
         Json(payload): Json<PingRequest>,
     ) -> impl IntoResponse {
         info!("Received ping from node: {}", payload.node_id);
-        
+
         let response = PingResponse {
             node_id: server.cluster_manager.config.node_id.clone(),
             timestamp: chrono::Utc::now().timestamp(),
             alive: true,
         };
-        
+
         (StatusCode::OK, Json(response)).into_response()
     }
 
@@ -217,16 +235,21 @@ impl ApiServer {
             .route("/cluster", get(Self::cluster_handler))
             .route("/metrics", get(Self::metrics_handler))
             .route("/promote", post(Self::promote_handler))
-            .route("/cluster/broadcast/health", post(Self::broadcast_health_handler))
-            .route("/cluster/broadcast/raft", post(Self::broadcast_raft_handler))
+            .route(
+                "/cluster/broadcast/health",
+                post(Self::broadcast_health_handler),
+            )
+            .route(
+                "/cluster/broadcast/raft",
+                post(Self::broadcast_raft_handler),
+            )
             .route("/cluster/peers", get(Self::peers_handler))
             .route("/cluster/ping", post(Self::ping_handler))
             .with_state(Arc::new(self.clone()));
 
         // Start server
         let listener = tokio::net::TcpListener::bind(&addr).await?;
-        axum::serve(listener, app.into_make_service())
-            .await?;
+        axum::serve(listener, app.into_make_service()).await?;
 
         Ok(())
     }
@@ -237,10 +260,14 @@ impl ApiServer {
     ) -> impl IntoResponse {
         // Check authentication
         if let Err(e) = server.authenticate(&headers).await {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": e.to_string()
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": e.to_string()
+                })),
+            )
+                .into_response();
         }
 
         let start_time = std::time::Instant::now();
@@ -252,12 +279,17 @@ impl ApiServer {
             is_healthy: health_status.is_healthy,
             score: health_status.score,
             is_primary: health_status.is_primary,
-            replication_lag_seconds: health_status.replication_lag.map(|lag| lag as f64 / 1_000_000.0),
+            replication_lag_seconds: health_status
+                .replication_lag
+                .map(|lag| lag as f64 / 1_000_000.0),
             server_version: health_status.server_version,
             current_lsn: health_status.current_lsn,
             error_count: health_status.error_count,
             consecutive_failures: health_status.consecutive_failures,
-            last_check: format!("{}s ago", chrono::Utc::now().timestamp() - health_status.last_check),
+            last_check: format!(
+                "{}s ago",
+                chrono::Utc::now().timestamp() - health_status.last_check
+            ),
         };
 
         // Get Raft status
@@ -289,10 +321,14 @@ impl ApiServer {
     ) -> impl IntoResponse {
         // Check authentication
         if let Err(e) = server.authenticate(&headers).await {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": e.to_string()
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": e.to_string()
+                })),
+            )
+                .into_response();
         }
 
         // For now, return single node info
@@ -306,8 +342,13 @@ impl ApiServer {
             is_healthy: health_status.is_healthy,
             health_score: health_status.score,
             is_primary: health_status.is_primary,
-            replication_lag_seconds: health_status.replication_lag.map(|lag| lag as f64 / 1_000_000.0),
-            last_seen: format!("{}s ago", chrono::Utc::now().timestamp() - health_status.last_check),
+            replication_lag_seconds: health_status
+                .replication_lag
+                .map(|lag| lag as f64 / 1_000_000.0),
+            last_seen: format!(
+                "{}s ago",
+                chrono::Utc::now().timestamp() - health_status.last_check
+            ),
         };
 
         let response = ClusterResponse {
@@ -326,10 +367,14 @@ impl ApiServer {
     ) -> impl IntoResponse {
         // Check authentication
         if let Err(e) = server.authenticate(&headers).await {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": e.to_string()
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": e.to_string()
+                })),
+            )
+                .into_response();
         }
 
         // Return basic metrics as JSON
@@ -359,48 +404,68 @@ impl ApiServer {
     ) -> impl IntoResponse {
         // Check authentication
         if let Err(e) = server.authenticate(&headers).await {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": e.to_string()
-            }))).into_response();
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": e.to_string()
+                })),
+            )
+                .into_response();
         }
 
         // Check if we're already primary
         if server.health_checker.is_primary().await {
-            return (StatusCode::OK, Json(PromoteResponse {
-                success: true,
-                message: "Already primary".to_string(),
-                new_primary: Some(server.raft_node.get_state().await.node_id),
-            })).into_response();
+            return (
+                StatusCode::OK,
+                Json(PromoteResponse {
+                    success: true,
+                    message: "Already primary".to_string(),
+                    new_primary: Some(server.raft_node.get_state().await.node_id),
+                }),
+            )
+                .into_response();
         }
 
         // Check if we're healthy enough to promote
         let health_status = server.health_checker.get_status().await;
         if !health_status.is_healthy && !payload.force.unwrap_or(false) {
-            return (StatusCode::BAD_REQUEST, Json(PromoteResponse {
-                success: false,
-                message: "Node is not healthy enough for promotion".to_string(),
-                new_primary: None,
-            })).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(PromoteResponse {
+                    success: false,
+                    message: "Node is not healthy enough for promotion".to_string(),
+                    new_primary: None,
+                }),
+            )
+                .into_response();
         }
 
         // Attempt promotion
         match server.health_checker.force_health_check().await {
             Ok(_) => {
                 info!("Manual promotion requested");
-                (StatusCode::OK, Json(PromoteResponse {
-                    success: true,
-                    message: "Promotion initiated".to_string(),
-                    new_primary: Some(server.raft_node.get_state().await.node_id),
-                })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(PromoteResponse {
+                        success: true,
+                        message: "Promotion initiated".to_string(),
+                        new_primary: Some(server.raft_node.get_state().await.node_id),
+                    }),
+                )
+                    .into_response()
             }
             Err(e) => {
                 error!("Promotion failed: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(PromoteResponse {
-                    success: false,
-                    message: format!("Promotion failed: {}", e),
-                    new_primary: None,
-                })).into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(PromoteResponse {
+                        success: false,
+                        message: format!("Promotion failed: {}", e),
+                        new_primary: None,
+                    }),
+                )
+                    .into_response()
             }
         }
     }
@@ -416,7 +481,7 @@ impl ApiServer {
         }
 
         let token = &auth_header[7..]; // Remove "Bearer " prefix
-        
+
         if token != self.config.auth_token {
             return Err(anyhow::anyhow!("Invalid authentication token"));
         }
@@ -434,4 +499,4 @@ impl Clone for ApiServer {
             cluster_manager: Arc::clone(&self.cluster_manager),
         }
     }
-} 
+}

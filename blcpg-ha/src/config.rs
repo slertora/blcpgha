@@ -1,10 +1,10 @@
 // MIT License
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use anyhow::Result;
 use config::{Config, File};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -193,10 +193,10 @@ impl AppConfig {
             .build()?;
 
         let app_config: AppConfig = config.try_deserialize()?;
-        
+
         // Validate configuration
         app_config.validate()?;
-        
+
         Ok(app_config)
     }
 
@@ -282,16 +282,24 @@ impl AppConfig {
 
         // Validate critical failover configuration
         if self.critical_failover.health_check_interval.is_empty() {
-            return Err(anyhow::anyhow!("Critical failover health_check_interval must be set"));
+            return Err(anyhow::anyhow!(
+                "Critical failover health_check_interval must be set"
+            ));
         }
         if self.critical_failover.failover_timeout.is_empty() {
-            return Err(anyhow::anyhow!("Critical failover failover_timeout must be set"));
+            return Err(anyhow::anyhow!(
+                "Critical failover failover_timeout must be set"
+            ));
         }
         if self.critical_failover.fencing_timeout.is_empty() {
-            return Err(anyhow::anyhow!("Critical failover fencing_timeout must be set"));
+            return Err(anyhow::anyhow!(
+                "Critical failover fencing_timeout must be set"
+            ));
         }
         if self.critical_failover.rollback_timeout.is_empty() {
-            return Err(anyhow::anyhow!("Critical failover rollback_timeout must be set"));
+            return Err(anyhow::anyhow!(
+                "Critical failover rollback_timeout must be set"
+            ));
         }
 
         // Validate metrics configuration
@@ -307,18 +315,25 @@ impl AppConfig {
         // Validate fallback configuration if enabled
         if self.vip.fallback_enabled {
             if self.vip.fallback_order.is_empty() {
-                return Err(anyhow::anyhow!("Fallback order must be specified when fallback is enabled"));
+                return Err(anyhow::anyhow!(
+                    "Fallback order must be specified when fallback is enabled"
+                ));
             }
-            
+
             // Validate that all fallback types are supported
             for vip_type in &self.vip.fallback_order {
                 match vip_type.as_str() {
-                    "haproxy" | "proxysql" | "keepalived" | "aws_elastic_ip" | "aws_elb" => {},
-                    _ => return Err(anyhow::anyhow!("Unsupported VIP type in fallback order: {}", vip_type)),
+                    "haproxy" | "proxysql" | "keepalived" | "aws_elastic_ip" | "aws_elb" => {}
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Unsupported VIP type in fallback order: {}",
+                            vip_type
+                        ))
+                    }
                 }
             }
         }
-        
+
         // Validate HAProxy configuration if enabled
         if self.vip.enabled && self.vip.r#type == "haproxy" {
             if let Some(haproxy) = &self.vip.haproxy {
@@ -345,7 +360,9 @@ impl AppConfig {
                 }
                 self.validate_duration_string(&haproxy.timeout, "vip.haproxy.timeout")?;
             } else {
-                return Err(anyhow::anyhow!("HAProxy configuration is required when VIP type is haproxy"));
+                return Err(anyhow::anyhow!(
+                    "HAProxy configuration is required when VIP type is haproxy"
+                ));
             }
         }
 
@@ -372,7 +389,9 @@ impl AppConfig {
                 }
                 self.validate_duration_string(&proxysql.timeout, "vip.proxysql.timeout")?;
             } else {
-                return Err(anyhow::anyhow!("ProxySQL configuration is required when VIP type is proxysql"));
+                return Err(anyhow::anyhow!(
+                    "ProxySQL configuration is required when VIP type is proxysql"
+                ));
             }
         }
 
@@ -405,7 +424,9 @@ impl AppConfig {
                 }
                 self.validate_duration_string(&keepalived.timeout, "vip.keepalived.timeout")?;
             } else {
-                return Err(anyhow::anyhow!("Keepalived configuration is required when VIP type is keepalived"));
+                return Err(anyhow::anyhow!(
+                    "Keepalived configuration is required when VIP type is keepalived"
+                ));
             }
         }
 
@@ -432,7 +453,9 @@ impl AppConfig {
                 }
                 self.validate_duration_string(&aws_eip.timeout, "vip.aws_elastic_ip.timeout")?;
             } else {
-                return Err(anyhow::anyhow!("AWS Elastic IP configuration is required when VIP type is aws_elastic_ip"));
+                return Err(anyhow::anyhow!(
+                    "AWS Elastic IP configuration is required when VIP type is aws_elastic_ip"
+                ));
             }
         }
 
@@ -465,27 +488,48 @@ impl AppConfig {
                 }
                 self.validate_duration_string(&aws_elb.timeout, "vip.aws_elb.timeout")?;
             } else {
-                return Err(anyhow::anyhow!("AWS ELB configuration is required when VIP type is aws_elb"));
+                return Err(anyhow::anyhow!(
+                    "AWS ELB configuration is required when VIP type is aws_elb"
+                ));
             }
         }
 
         // Validate timeouts and intervals
-        self.validate_duration_string(&self.cluster.heartbeat_interval, "cluster.heartbeat_interval")?;
+        self.validate_duration_string(
+            &self.cluster.heartbeat_interval,
+            "cluster.heartbeat_interval",
+        )?;
         self.validate_duration_string(&self.cluster.timeout, "cluster.timeout")?;
         self.validate_duration_string(&self.health.interval, "health.interval")?;
         self.validate_duration_string(&self.health.timeout, "health.timeout")?;
-        self.validate_duration_string(&self.critical_failover.health_check_interval, "critical_failover.health_check_interval")?;
-        self.validate_duration_string(&self.critical_failover.failover_timeout, "critical_failover.failover_timeout")?;
-        self.validate_duration_string(&self.critical_failover.fencing_timeout, "critical_failover.fencing_timeout")?;
-        self.validate_duration_string(&self.critical_failover.rollback_timeout, "critical_failover.rollback_timeout")?;
+        self.validate_duration_string(
+            &self.critical_failover.health_check_interval,
+            "critical_failover.health_check_interval",
+        )?;
+        self.validate_duration_string(
+            &self.critical_failover.failover_timeout,
+            "critical_failover.failover_timeout",
+        )?;
+        self.validate_duration_string(
+            &self.critical_failover.fencing_timeout,
+            "critical_failover.fencing_timeout",
+        )?;
+        self.validate_duration_string(
+            &self.critical_failover.rollback_timeout,
+            "critical_failover.rollback_timeout",
+        )?;
 
         Ok(())
     }
 
     fn validate_duration_string(&self, duration_str: &str, field_name: &str) -> Result<()> {
         if let Err(_) = humantime::Duration::from_str(duration_str) {
-            return Err(anyhow::anyhow!("Invalid duration format for {}: {}", field_name, duration_str));
+            return Err(anyhow::anyhow!(
+                "Invalid duration format for {}: {}",
+                field_name,
+                duration_str
+            ));
         }
         Ok(())
     }
-} 
+}

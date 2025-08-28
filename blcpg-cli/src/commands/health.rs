@@ -11,22 +11,65 @@ pub async fn execute(client: &impl ApiClientTrait, detailed: bool) -> Result<()>
     if detailed {
         println!("{}", "Health Information (Detailed)".bold().blue());
         println!("{}", "=".repeat(40));
-        println!("Overall Health: {}", get_health_status_text(status.health.is_healthy));
+        println!(
+            "Overall Health: {}",
+            get_health_status_text(status.health.is_healthy)
+        );
         println!("Health Score: {:.2}%", status.health.score);
-        println!("Is Primary: {}", if status.health.is_primary { "Yes".green() } else { "No".yellow() });
-        println!("Replication Lag: {}", get_replication_lag_text(status.health.replication_lag_seconds));
-        println!("Server Version: {}", status.health.server_version.as_ref().unwrap_or(&"Unknown".to_string()));
-        println!("Current LSN: {}", status.health.current_lsn.as_ref().unwrap_or(&"Unknown".to_string()));
+        println!(
+            "Is Primary: {}",
+            if status.health.is_primary {
+                "Yes".green()
+            } else {
+                "No".yellow()
+            }
+        );
+        println!(
+            "Replication Lag: {}",
+            get_replication_lag_text(status.health.replication_lag_seconds)
+        );
+        println!(
+            "Server Version: {}",
+            status
+                .health
+                .server_version
+                .as_ref()
+                .unwrap_or(&"Unknown".to_string())
+        );
+        println!(
+            "Current LSN: {}",
+            status
+                .health
+                .current_lsn
+                .as_ref()
+                .unwrap_or(&"Unknown".to_string())
+        );
         println!("Error Count: {}", status.health.error_count);
-        println!("Consecutive Failures: {}", status.health.consecutive_failures);
+        println!(
+            "Consecutive Failures: {}",
+            status.health.consecutive_failures
+        );
         println!("Last Check: {}", status.health.last_check);
     } else {
         println!("{}", "Health Information".bold().blue());
         println!("{}", "=".repeat(20));
-        println!("Status: {}", get_health_status_text(status.health.is_healthy));
+        println!(
+            "Status: {}",
+            get_health_status_text(status.health.is_healthy)
+        );
         println!("Score: {:.2}%", status.health.score);
-        println!("Primary: {}", if status.health.is_primary { "Yes".green() } else { "No".yellow() });
-        println!("Replication Lag: {}", get_replication_lag_text(status.health.replication_lag_seconds));
+        println!(
+            "Primary: {}",
+            if status.health.is_primary {
+                "Yes".green()
+            } else {
+                "No".yellow()
+            }
+        );
+        println!(
+            "Replication Lag: {}",
+            get_replication_lag_text(status.health.replication_lag_seconds)
+        );
         println!("Last Check: {}", status.health.last_check);
     }
 
@@ -54,4 +97,4 @@ fn get_replication_lag_text(lag: Option<f64>) -> String {
         }
         None => "N/A".yellow().to_string(),
     }
-} 
+}

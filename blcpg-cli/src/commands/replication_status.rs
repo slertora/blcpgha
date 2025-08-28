@@ -38,7 +38,10 @@ pub async fn execute(
     println!("{}", "=".repeat(18));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
@@ -48,7 +51,10 @@ pub async fn execute(
     println!("Cluster Overview:");
     println!("  Total Nodes: {}", cluster_status.total_nodes);
     println!("  Healthy Nodes: {}", cluster_status.healthy_nodes);
-    println!("  Primary Node: {}", get_primary_node_id(&cluster_status.nodes));
+    println!(
+        "  Primary Node: {}",
+        get_primary_node_id(&cluster_status.nodes)
+    );
     println!();
 
     // Collect replication status for all nodes
@@ -56,15 +62,22 @@ pub async fn execute(
     let mut issues_found = Vec::new();
 
     for node in &cluster_status.nodes {
-        let (sync_state, replay_lag, write_lag, wal_receive_lsn, wal_replay_lsn) = 
-            if demo {
-                get_demo_replication_info(node)
-            } else {
-                get_replication_info(node).await?
-            };
+        let (sync_state, replay_lag, write_lag, wal_receive_lsn, wal_replay_lsn) = if demo {
+            get_demo_replication_info(node)
+        } else {
+            get_replication_info(node).await?
+        };
 
-        let status = if node.is_healthy { "Healthy".green() } else { "Unhealthy".red() };
-        let role = if node.is_primary { "Primary".bold().cyan() } else { "Replica".yellow() };
+        let status = if node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        };
+        let role = if node.is_primary {
+            "Primary".bold().cyan()
+        } else {
+            "Replica".yellow()
+        };
 
         let row = ReplicationStatusRow {
             node_id: node.node_id.clone(),
@@ -79,10 +92,10 @@ pub async fn execute(
         };
 
         // Check for issues
-        let has_issues = !node.is_healthy || 
-                        sync_state.contains("disconnected") || 
-                        replay_lag.contains(">5s") ||
-                        write_lag.contains(">5s");
+        let has_issues = !node.is_healthy
+            || sync_state.contains("disconnected")
+            || replay_lag.contains(">5s")
+            || write_lag.contains(">5s");
 
         if has_issues {
             issues_found.push(node.node_id.clone());
@@ -121,13 +134,16 @@ pub async fn execute(
 }
 
 fn get_primary_node_id(nodes: &[crate::client::NodeInfo]) -> String {
-    nodes.iter()
+    nodes
+        .iter()
         .find(|node| node.is_primary)
         .map(|node| node.node_id.clone())
         .unwrap_or_else(|| "None".red().to_string())
 }
 
-fn get_demo_replication_info(node: &crate::client::NodeInfo) -> (String, String, String, String, String) {
+fn get_demo_replication_info(
+    node: &crate::client::NodeInfo,
+) -> (String, String, String, String, String) {
     if node.is_primary {
         (
             "N/A".yellow().to_string(),
@@ -137,10 +153,22 @@ fn get_demo_replication_info(node: &crate::client::NodeInfo) -> (String, String,
             "0/12345678".to_string(),
         )
     } else {
-        let sync_state = if node.node_id == "node-2" { "sync".green() } else { "async".yellow() };
-        let replay_lag = if node.node_id == "node-2" { "0.05s".green() } else { "0.25s".yellow() };
-        let write_lag = if node.node_id == "node-2" { "0.02s".green() } else { "0.15s".yellow() };
-        
+        let sync_state = if node.node_id == "node-2" {
+            "sync".green()
+        } else {
+            "async".yellow()
+        };
+        let replay_lag = if node.node_id == "node-2" {
+            "0.05s".green()
+        } else {
+            "0.25s".yellow()
+        };
+        let write_lag = if node.node_id == "node-2" {
+            "0.02s".green()
+        } else {
+            "0.15s".yellow()
+        };
+
         (
             sync_state.to_string(),
             replay_lag.to_string(),
@@ -151,10 +179,12 @@ fn get_demo_replication_info(node: &crate::client::NodeInfo) -> (String, String,
     }
 }
 
-async fn get_replication_info(node: &crate::client::NodeInfo) -> Result<(String, String, String, String, String)> {
+async fn get_replication_info(
+    node: &crate::client::NodeInfo,
+) -> Result<(String, String, String, String, String)> {
     // In production, this would query PostgreSQL for actual replication information
     // For now, we'll simulate based on the node's health and replication lag
-    
+
     if node.is_primary {
         return Ok((
             "N/A".yellow().to_string(),
@@ -165,10 +195,14 @@ async fn get_replication_info(node: &crate::client::NodeInfo) -> Result<(String,
         ));
     }
 
-    let sync_state = if node.health_score > 80.0 { "sync".green() } else { "async".yellow() };
+    let sync_state = if node.health_score > 80.0 {
+        "sync".green()
+    } else {
+        "async".yellow()
+    };
     let replay_lag = get_replication_lag_text(node.replication_lag_seconds);
     let write_lag = get_replication_lag_text(node.replication_lag_seconds.map(|lag| lag * 0.8));
-    
+
     // Simulate WAL LSNs
     let wal_receive_lsn = "0/12345678".to_string();
     let wal_replay_lsn = if node.replication_lag_seconds.unwrap_or(0.0) < 1.0 {
@@ -177,7 +211,13 @@ async fn get_replication_info(node: &crate::client::NodeInfo) -> Result<(String,
         "0/12345600".to_string()
     };
 
-    Ok((sync_state.to_string(), replay_lag, write_lag, wal_receive_lsn, wal_replay_lsn))
+    Ok((
+        sync_state.to_string(),
+        replay_lag,
+        write_lag,
+        wal_receive_lsn,
+        wal_replay_lsn,
+    ))
 }
 
 fn get_replication_lag_text(lag: Option<f64>) -> String {
@@ -210,22 +250,30 @@ async fn show_recommendations(nodes: &[crate::client::NodeInfo], demo: bool) -> 
 
     // Analyze nodes and provide recommendations
     let unhealthy_nodes: Vec<_> = nodes.iter().filter(|node| !node.is_healthy).collect();
-    let high_lag_nodes: Vec<_> = nodes.iter()
+    let high_lag_nodes: Vec<_> = nodes
+        .iter()
         .filter(|node| !node.is_primary && node.replication_lag_seconds.unwrap_or(0.0) > 1.0)
         .collect();
 
     if !unhealthy_nodes.is_empty() {
         println!("  • {} unhealthy node(s) detected:", unhealthy_nodes.len());
         for node in &unhealthy_nodes {
-            println!("    - Node {} (Health: {:.2}%)", node.node_id, node.health_score);
+            println!(
+                "    - Node {} (Health: {:.2}%)",
+                node.node_id, node.health_score
+            );
         }
     }
 
     if !high_lag_nodes.is_empty() {
-        println!("  • {} node(s) with high replication lag:", high_lag_nodes.len());
+        println!(
+            "  • {} node(s) with high replication lag:",
+            high_lag_nodes.len()
+        );
         for node in &high_lag_nodes {
-            println!("    - Node {} (Lag: {:.1}s)", 
-                node.node_id, 
+            println!(
+                "    - Node {} (Lag: {:.1}s)",
+                node.node_id,
                 node.replication_lag_seconds.unwrap_or(0.0)
             );
         }
@@ -238,8 +286,11 @@ async fn show_recommendations(nodes: &[crate::client::NodeInfo], demo: bool) -> 
     // Performance recommendations
     let avg_health = nodes.iter().map(|n| n.health_score).sum::<f64>() / nodes.len() as f64;
     if avg_health < 70.0 {
-        println!("  • Overall cluster health is low ({:.1}%). Consider investigation.", avg_health);
+        println!(
+            "  • Overall cluster health is low ({:.1}%). Consider investigation.",
+            avg_health
+        );
     }
 
     Ok(())
-} 
+}

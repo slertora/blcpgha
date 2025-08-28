@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
-use axum::response::Json;
-use serde::{Deserialize, Serialize};
-use chrono::Utc;
 use crate::models::ApiResponse;
+use axum::response::Json;
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RestoreRequest {
@@ -39,7 +39,7 @@ pub struct UpgradeRequest {
 // Restore desde backup
 pub async fn restore(Json(request): Json<RestoreRequest>) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/restore")
         .json(&request)
@@ -64,21 +64,19 @@ pub async fn restore(Json(request): Json<RestoreRequest>) -> Json<ApiResponse<St
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
 }
 
 // Ejecutar mantenimiento
 pub async fn maintenance(Json(request): Json<MaintenanceRequest>) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/maintenance")
         .json(&request)
@@ -103,21 +101,19 @@ pub async fn maintenance(Json(request): Json<MaintenanceRequest>) -> Json<ApiRes
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
 }
 
 // Actualizar PostgreSQL
 pub async fn upgrade(Json(request): Json<UpgradeRequest>) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/upgrade")
         .json(&request)
@@ -142,13 +138,11 @@ pub async fn upgrade(Json(request): Json<UpgradeRequest>) -> Json<ApiResponse<St
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
-} 
+}

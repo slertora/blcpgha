@@ -1,15 +1,15 @@
 // MIT License
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 
-use crate::config::{HealthConfig, CriticalFailoverConfig};
-use crate::postgresql::PostgreSQLConnection;
 use crate::cluster::ClusterManager;
+use crate::config::{CriticalFailoverConfig, HealthConfig};
+use crate::postgresql::PostgreSQLConnection;
 use anyhow::Result;
+use chrono;
 use humantime::Duration as HumanDuration;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::str::FromStr;
-use chrono;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::interval;
@@ -70,16 +70,19 @@ impl HealthChecker {
     }
 
     pub async fn run(&self) -> Result<()> {
-        info!("Starting health checker with interval: {}", self.config.interval);
-        
+        info!(
+            "Starting health checker with interval: {}",
+            self.config.interval
+        );
+
         let interval_duration = HumanDuration::from_str(&self.config.interval)
             .map_err(|e| anyhow::anyhow!("Invalid health interval: {}", e))?;
-        
+
         let mut interval = interval(interval_duration.into());
 
         loop {
             interval.tick().await;
-            
+
             if let Err(e) = self.perform_health_check().await {
                 error!("Health check failed: {}", e);
                 self.update_error_status().await;
@@ -89,14 +92,14 @@ impl HealthChecker {
 
     async fn perform_health_check(&self) -> Result<()> {
         let start_time = Instant::now();
-        
+
         // Check if we have a PostgreSQL connection
         let pg_conn = match &self.pg_conn {
             Some(conn) => conn,
             None => {
                 // No PostgreSQL connection available - try to reconnect
                 self.attempt_reconnection().await;
-                
+
                 // Update status to reflect this
                 let mut status = self.status.write().await;
                 status.is_healthy = false;
@@ -107,12 +110,12 @@ impl HealthChecker {
                 status.server_version = None;
                 status.current_lsn = None;
                 status.consecutive_failures += 1;
-                
+
                 warn!("PostgreSQL connection not available - health check skipped");
                 return Err(anyhow::anyhow!("PostgreSQL connection not available"));
             }
         };
-        
+
         // Basic connection health check
         let connection_healthy = match pg_conn.health_check().await {
             Ok(healthy) => healthy,
@@ -122,7 +125,7 @@ impl HealthChecker {
                 return Err(e);
             }
         };
-        
+
         if !connection_healthy {
             self.update_error_status().await;
             return Err(anyhow::anyhow!("PostgreSQL connection unhealthy"));
@@ -229,7 +232,7 @@ impl HealthChecker {
 
     async fn should_auto_promote(&self) -> bool {
         let status = self.status.read().await;
-        
+
         // Check if we're healthy enough
         if status.score < self.failover_config.min_health_score {
             return false;
@@ -314,4 +317,4 @@ impl HealthChecker {
         self.shutdown_tx.send(()).await?;
         Ok(())
     }
-} 
+}

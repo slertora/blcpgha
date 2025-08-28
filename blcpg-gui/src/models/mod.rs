@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterStatus {
@@ -160,4 +160,4 @@ impl<T> ApiResponse<T> {
             timestamp: Utc::now(),
         }
     }
-} 
+}

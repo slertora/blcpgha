@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use config as config_crate;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -94,7 +94,7 @@ impl Default for UiConfig {
 
 pub fn load_config(path: &str) -> Result<Config> {
     let mut config = config_crate::Config::default();
-    
+
     // Set defaults
     config.set_default("server.host", "0.0.0.0")?;
     config.set_default("server.port", 3000)?;
@@ -108,16 +108,16 @@ pub fn load_config(path: &str) -> Result<Config> {
     config.set_default("ui.theme", "dark")?;
     config.set_default("ui.refresh_interval", 5)?;
     config.set_default("ui.auto_refresh", true)?;
-    
+
     // Load from file if it exists
     if std::path::Path::new(path).exists() {
         config.merge(config_crate::File::with_name(path))?;
     }
-    
+
     // Load from environment variables
     config.merge(config_crate::Environment::with_prefix("BLCGUI"))?;
-    
+
     // Try to deserialize
     let config: Config = config.try_deserialize()?;
     Ok(config)
-} 
+}

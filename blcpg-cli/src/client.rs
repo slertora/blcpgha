@@ -135,10 +135,7 @@ impl ApiClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "API request failed: {}",
-                response.status()
-            ));
+            return Err(anyhow::anyhow!("API request failed: {}", response.status()));
         }
 
         let data = response.json::<T>().await?;
@@ -160,10 +157,7 @@ impl ApiClient {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "API request failed: {}",
-                response.status()
-            ));
+            return Err(anyhow::anyhow!("API request failed: {}", response.status()));
         }
 
         let data = response.json::<T>().await?;
@@ -220,4 +214,4 @@ impl ApiClientTrait for ApiClient {
         self.post("/api/v1/cluster/demote", &request).await?;
         Ok(())
     }
-} 
+}

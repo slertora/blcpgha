@@ -7,11 +7,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 pub fn init(config: &LoggingConfig) -> Result<()> {
     // Build environment filter from config
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            let level = &config.level;
-            format!("blcpg_ha={},tower_http=info", level).into()
-        });
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        let level = &config.level;
+        format!("blcpg_ha={},tower_http=info", level).into()
+    });
 
     // Initialize tracing with configurable settings
     tracing_subscriber::registry()
@@ -21,4 +20,4 @@ pub fn init(config: &LoggingConfig) -> Result<()> {
 
     tracing::info!("Logging initialized with level: {}", config.level);
     Ok(())
-} 
+}

@@ -34,14 +34,41 @@ pub async fn execute(client: &impl ApiClientTrait, detailed: bool) -> Result<()>
         println!("Role: {}", get_role_text(&status.raft));
         println!("Health Score: {:.2}%", status.health.score);
         println!("Status: {}", get_status_text(status.health.is_healthy));
-        println!("Replication Lag: {}", get_replication_lag_text(status.health.replication_lag_seconds));
-        println!("Server Version: {}", status.health.server_version.as_ref().unwrap_or(&"Unknown".to_string()));
-        println!("Current LSN: {}", status.health.current_lsn.as_ref().unwrap_or(&"Unknown".to_string()));
+        println!(
+            "Replication Lag: {}",
+            get_replication_lag_text(status.health.replication_lag_seconds)
+        );
+        println!(
+            "Server Version: {}",
+            status
+                .health
+                .server_version
+                .as_ref()
+                .unwrap_or(&"Unknown".to_string())
+        );
+        println!(
+            "Current LSN: {}",
+            status
+                .health
+                .current_lsn
+                .as_ref()
+                .unwrap_or(&"Unknown".to_string())
+        );
         println!("Last Check: {}", status.health.last_check);
         println!("Error Count: {}", status.health.error_count);
-        println!("Consecutive Failures: {}", status.health.consecutive_failures);
+        println!(
+            "Consecutive Failures: {}",
+            status.health.consecutive_failures
+        );
         println!("Raft Term: {}", status.raft.current_term);
-        println!("Is Leader: {}", if status.raft.is_leader { "Yes".green() } else { "No".yellow() });
+        println!(
+            "Is Leader: {}",
+            if status.raft.is_leader {
+                "Yes".green()
+            } else {
+                "No".yellow()
+            }
+        );
     } else {
         let table = StatusTable {
             node_id: status.raft.node_id.clone(),
@@ -49,7 +76,11 @@ pub async fn execute(client: &impl ApiClientTrait, detailed: bool) -> Result<()>
             health_score: format!("{:.2}%", status.health.score),
             status: get_status_text(status.health.is_healthy),
             replication_lag: get_replication_lag_text(status.health.replication_lag_seconds),
-            server_version: status.health.server_version.clone().unwrap_or_else(|| "Unknown".to_string()),
+            server_version: status
+                .health
+                .server_version
+                .clone()
+                .unwrap_or_else(|| "Unknown".to_string()),
             last_check: status.health.last_check.clone(),
         };
 
@@ -88,4 +119,4 @@ fn get_replication_lag_text(lag: Option<f64>) -> String {
         }
         None => "N/A".yellow().to_string(),
     }
-} 
+}

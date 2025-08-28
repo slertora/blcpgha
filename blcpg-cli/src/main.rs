@@ -306,34 +306,120 @@ async fn main() -> Result<()> {
         Commands::Vip { detailed } => {
             commands::vip::execute(&client, detailed).await?;
         }
-        Commands::AddReplica { target, source, wait_sync, force, demo } => {
-            commands::add_replica::execute(&client, &target, &source, wait_sync, force, demo).await?;
+        Commands::AddReplica {
+            target,
+            source,
+            wait_sync,
+            force,
+            demo,
+        } => {
+            commands::add_replica::execute(&client, &target, &source, wait_sync, force, demo)
+                .await?;
         }
-        Commands::Switchover { target, wait_sync, force, demo } => {
+        Commands::Switchover {
+            target,
+            wait_sync,
+            force,
+            demo,
+        } => {
             commands::switchover::execute(&client, &target, wait_sync, force, demo).await?;
         }
-        Commands::Failover { target, notify, force, demo } => {
+        Commands::Failover {
+            target,
+            notify,
+            force,
+            demo,
+        } => {
             commands::failover::execute(&client, &target, notify, force, demo).await?;
         }
-        Commands::ReplicationStatus { detailed, issues_only, demo } => {
+        Commands::ReplicationStatus {
+            detailed,
+            issues_only,
+            demo,
+        } => {
             commands::replication_status::execute(&client, detailed, issues_only, demo).await?;
         }
-        Commands::ClusterExpand { count, auto_install, auto_configure, demo } => {
-            commands::cluster_expand::execute(&client, count, auto_install, auto_configure, demo).await?;
+        Commands::ClusterExpand {
+            count,
+            auto_install,
+            auto_configure,
+            demo,
+        } => {
+            commands::cluster_expand::execute(&client, count, auto_install, auto_configure, demo)
+                .await?;
         }
-        Commands::Backup { target, backup_type, compression, encrypt, retention_days, demo } => {
-            commands::backup::execute(&client, &target, &backup_type, compression, encrypt, retention_days, demo).await?;
+        Commands::Backup {
+            target,
+            backup_type,
+            compression,
+            encrypt,
+            retention_days,
+            demo,
+        } => {
+            commands::backup::execute(
+                &client,
+                &target,
+                &backup_type,
+                compression,
+                encrypt,
+                retention_days,
+                demo,
+            )
+            .await?;
         }
-        Commands::Restore { backup_id, target, restore_type, point_in_time, verify, demo } => {
-            commands::restore::execute(&client, &backup_id, &target, &restore_type, point_in_time, verify, demo).await?;
+        Commands::Restore {
+            backup_id,
+            target,
+            restore_type,
+            point_in_time,
+            verify,
+            demo,
+        } => {
+            commands::restore::execute(
+                &client,
+                &backup_id,
+                &target,
+                &restore_type,
+                point_in_time,
+                verify,
+                demo,
+            )
+            .await?;
         }
-        Commands::Maintenance { target, maintenance_type, level, background, demo } => {
-            commands::maintenance::execute(&client, &target, &maintenance_type, &level, background, demo).await?;
+        Commands::Maintenance {
+            target,
+            maintenance_type,
+            level,
+            background,
+            demo,
+        } => {
+            commands::maintenance::execute(
+                &client,
+                &target,
+                &maintenance_type,
+                &level,
+                background,
+                demo,
+            )
+            .await?;
         }
-        Commands::Upgrade { target, version, strategy, backup, demo } => {
+        Commands::Upgrade {
+            target,
+            version,
+            strategy,
+            backup,
+            demo,
+        } => {
             commands::upgrade::execute(&client, &target, &version, &strategy, backup, demo).await?;
         }
-        Commands::Config { target, action, key, value, file, demo } => {
+        Commands::Config {
+            target,
+            action,
+            key,
+            value,
+            file,
+            demo,
+        } => {
             commands::config::execute(&client, &target, &action, key, value, &file, demo).await?;
         }
     }
@@ -350,7 +436,8 @@ mod tests {
     #[tokio::test]
     async fn test_add_replica_demo_mode() -> Result<()> {
         let client = MockApiClient;
-        let result = commands::add_replica::execute(&client, "node-4", "auto", true, false, true).await;
+        let result =
+            commands::add_replica::execute(&client, "node-4", "auto", true, false, true).await;
         assert!(result.is_ok());
         Ok(())
     }
@@ -415,4 +502,4 @@ mod tests {
         assert_eq!(new_ids[0], "node-3");
         assert_eq!(new_ids[1], "node-4");
     }
-} 
+}

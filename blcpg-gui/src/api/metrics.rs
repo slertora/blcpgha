@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
+use crate::models::{ApiResponse, ClusterMetrics};
 use axum::response::Json;
-use crate::models::{ClusterMetrics, ApiResponse};
 use chrono::Utc;
 
 pub async fn get_metrics() -> Json<ApiResponse<ClusterMetrics>> {
@@ -19,4 +19,4 @@ pub async fn get_metrics() -> Json<ApiResponse<ClusterMetrics>> {
     };
 
     Json(ApiResponse::success(metrics))
-} 
+}

@@ -85,4 +85,4 @@ pub fn load_config(config_path: &str) -> Result<CliConfig> {
     cli_config.validate()?;
 
     Ok(cli_config)
-} 
+}

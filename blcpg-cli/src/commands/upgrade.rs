@@ -3,8 +3,8 @@
 
 use crate::client::ApiClientTrait;
 use anyhow::Result;
-use colored::*;
 use chrono::{DateTime, Utc};
+use colored::*;
 
 #[derive(Debug, Clone)]
 pub struct UpgradeInfo {
@@ -54,7 +54,10 @@ pub async fn execute(
     println!("{}", "=".repeat(32));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
@@ -66,12 +69,22 @@ pub async fn execute(
     println!("  Current Version: {}", "14.10".bold()); // In production, this would be queried
     println!("  Target Version: {}", version.bold());
     println!("  Strategy: {}", strategy.bold());
-    println!("  Backup Before Upgrade: {}", if backup { "Enabled".green() } else { "Disabled".yellow() });
+    println!(
+        "  Backup Before Upgrade: {}",
+        if backup {
+            "Enabled".green()
+        } else {
+            "Disabled".yellow()
+        }
+    );
     println!();
 
     // Validate version format
     if !version.matches('.').count() >= 1 {
-        println!("{}", "WARNING: Version format seems invalid!".yellow().bold());
+        println!(
+            "{}",
+            "WARNING: Version format seems invalid!".yellow().bold()
+        );
         println!("Expected format: X.Y or X.Y.Z (e.g., 15.3, 14.10)");
         let response = get_user_confirmation("Do you want to continue anyway? (y/N): ", demo)?;
         if !response {
@@ -84,7 +97,8 @@ pub async fn execute(
     let target_node = if target == "auto" {
         select_best_upgrade_target(&cluster_status.nodes, strategy, demo)?
     } else {
-        cluster_status.nodes
+        cluster_status
+            .nodes
             .iter()
             .find(|node| node.node_id == target)
             .ok_or_else(|| anyhow::anyhow!("Target node '{}' not found in cluster", target))?
@@ -92,8 +106,11 @@ pub async fn execute(
 
     // Validate upgrade conditions
     if !demo {
-        println!("{}", "Step 1: Validating upgrade conditions...".bold().cyan());
-        
+        println!(
+            "{}",
+            "Step 1: Validating upgrade conditions...".bold().cyan()
+        );
+
         // Check if target node is healthy
         if !target_node.is_healthy {
             println!("{}", "ERROR: Target node is not healthy!".red().bold());
@@ -117,11 +134,23 @@ pub async fn execute(
 
     // Show upgrade analysis
     println!("{}", "Upgrade Analysis:".bold().cyan());
-    println!("  Target Node: {} ({})", 
-        target_node.node_id.bold(), 
-        if target_node.is_primary { "Primary".red() } else { "Replica".green() }
+    println!(
+        "  Target Node: {} ({})",
+        target_node.node_id.bold(),
+        if target_node.is_primary {
+            "Primary".red()
+        } else {
+            "Replica".green()
+        }
     );
-    println!("  Target Health: {}", if target_node.is_healthy { "Healthy".green() } else { "Unhealthy".red() });
+    println!(
+        "  Target Health: {}",
+        if target_node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
+    );
     println!("  Target Health Score: {:.2}%", target_node.health_score);
     println!("  Current Version: {}", "14.10".bold());
     println!("  Target Version: {}", version.bold());
@@ -135,27 +164,49 @@ pub async fn execute(
     println!("{}", "Upgrade Estimation:".bold().cyan());
     println!("  Estimated Time: {}", estimated_time);
     println!("  Performance Impact: {}", estimated_impact);
-    println!("  Downtime: {}", estimate_downtime(strategy, target_node.is_primary));
+    println!(
+        "  Downtime: {}",
+        estimate_downtime(strategy, target_node.is_primary)
+    );
     println!();
 
     // Show impact analysis
     println!("{}", "Impact Analysis:".bold().cyan());
     if target_node.is_primary {
-        println!("  Database Impact: {}", "HIGH - Primary node will be unavailable".red());
-        println!("  Cluster Impact: {}", "HIGH - Automatic failover may occur".red());
+        println!(
+            "  Database Impact: {}",
+            "HIGH - Primary node will be unavailable".red()
+        );
+        println!(
+            "  Cluster Impact: {}",
+            "HIGH - Automatic failover may occur".red()
+        );
         println!("  Downtime: {}", "Expected during upgrade".red());
     } else {
         println!("  Database Impact: {}", "LOW - Replica node only".green());
-        println!("  Cluster Impact: {}", "LOW - Primary remains available".green());
+        println!(
+            "  Cluster Impact: {}",
+            "LOW - Primary remains available".green()
+        );
         println!("  Downtime: {}", "None for cluster".green());
     }
-    println!("  Backup Required: {}", if backup { "Yes".green() } else { "No (risky)".red() });
+    println!(
+        "  Backup Required: {}",
+        if backup {
+            "Yes".green()
+        } else {
+            "No (risky)".red()
+        }
+    );
     println!("  Rollback Plan: {}", "Available".green());
     println!();
 
     // Create backup if requested
     if backup && !demo {
-        println!("{}", "Step 2: Creating backup before upgrade...".bold().cyan());
+        println!(
+            "{}",
+            "Step 2: Creating backup before upgrade...".bold().cyan()
+        );
         match create_upgrade_backup(&target_node.node_id).await {
             Ok(()) => {
                 println!("  ✅ Backup created successfully");
@@ -163,7 +214,8 @@ pub async fn execute(
             Err(e) => {
                 println!("{}", "❌ Backup creation failed!".red().bold());
                 println!("Error: {}", e);
-                let response = get_user_confirmation("Do you want to continue without backup? (y/N): ", demo)?;
+                let response =
+                    get_user_confirmation("Do you want to continue without backup? (y/N): ", demo)?;
                 if !response {
                     println!("Upgrade cancelled.");
                     return Ok(());
@@ -176,14 +228,23 @@ pub async fn execute(
     }
 
     // Final confirmation
-    let response = get_user_confirmation(&format!("Do you want to start PostgreSQL upgrade to {} on {}? (y/N): ", version, target_node.node_id), demo)?;
+    let response = get_user_confirmation(
+        &format!(
+            "Do you want to start PostgreSQL upgrade to {} on {}? (y/N): ",
+            version, target_node.node_id
+        ),
+        demo,
+    )?;
     if !response {
         println!("Upgrade cancelled.");
         return Ok(());
     }
 
     println!();
-    println!("{}", "Starting intelligent PostgreSQL upgrade...".bold().cyan());
+    println!(
+        "{}",
+        "Starting intelligent PostgreSQL upgrade...".bold().cyan()
+    );
 
     // Execute the upgrade
     match execute_upgrade(client, target_node, version, strategy, backup, demo).await {
@@ -195,7 +256,14 @@ pub async fn execute(
             println!("Target Version: {}", upgrade_info.target_version.bold());
             println!("Strategy: {}", upgrade_info.strategy.bold());
             println!("Status: {}", upgrade_info.status);
-            println!("Backup Created: {}", if upgrade_info.backup_created { "Yes".green() } else { "No".yellow() });
+            println!(
+                "Backup Created: {}",
+                if upgrade_info.backup_created {
+                    "Yes".green()
+                } else {
+                    "No".yellow()
+                }
+            );
             if let Some(duration) = upgrade_info.duration_seconds {
                 println!("Duration: {} seconds", duration);
             }
@@ -213,14 +281,15 @@ pub async fn execute(
 }
 
 fn select_best_upgrade_target<'a>(
-    nodes: &'a [crate::client::NodeInfo], 
+    nodes: &'a [crate::client::NodeInfo],
     strategy: &str,
-    demo: bool
+    demo: bool,
 ) -> Result<&'a crate::client::NodeInfo> {
     if demo {
         println!("  [DEMO MODE] Simulating best upgrade target selection...");
         // In demo mode, prefer replica nodes for safety
-        return nodes.iter()
+        return nodes
+            .iter()
             .find(|node| !node.is_primary && node.is_healthy)
             .or_else(|| nodes.iter().find(|node| node.is_primary))
             .ok_or_else(|| anyhow::anyhow!("No suitable upgrade target found"));
@@ -237,21 +306,28 @@ fn select_best_upgrade_target<'a>(
         let mut sorted_replicas = healthy_replicas;
         sorted_replicas.sort_by(|a, b| {
             // Primary sort: health score (descending)
-            let health_comparison = b.health_score.partial_cmp(&a.health_score).unwrap_or(std::cmp::Ordering::Equal);
+            let health_comparison = b
+                .health_score
+                .partial_cmp(&a.health_score)
+                .unwrap_or(std::cmp::Ordering::Equal);
             if health_comparison != std::cmp::Ordering::Equal {
                 return health_comparison;
             }
-            
+
             // Secondary sort: replication lag (ascending)
             let lag_a = a.replication_lag_seconds.unwrap_or(f64::MAX);
             let lag_b = b.replication_lag_seconds.unwrap_or(f64::MAX);
-            lag_a.partial_cmp(&lag_b).unwrap_or(std::cmp::Ordering::Equal)
+            lag_a
+                .partial_cmp(&lag_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let best_replica = sorted_replicas.first()
+        let best_replica = sorted_replicas
+            .first()
             .ok_or_else(|| anyhow::anyhow!("No suitable upgrade target found"))?;
 
-        println!("  Selected best replica: {} (Health: {:.2}%, Lag: {})", 
+        println!(
+            "  Selected best replica: {} (Health: {:.2}%, Lag: {})",
             best_replica.node_id.bold(),
             best_replica.health_score,
             get_replication_lag_text(best_replica.replication_lag_seconds)
@@ -262,7 +338,10 @@ fn select_best_upgrade_target<'a>(
 
     // If no healthy replicas, use primary (with warning)
     if let Some(primary) = nodes.iter().find(|node| node.is_primary && node.is_healthy) {
-        println!("  ⚠️  WARNING: No healthy replicas available, using primary node: {}", primary.node_id.bold());
+        println!(
+            "  ⚠️  WARNING: No healthy replicas available, using primary node: {}",
+            primary.node_id.bold()
+        );
         return Ok(primary);
     }
 
@@ -275,14 +354,20 @@ fn calculate_estimated_upgrade_time(version: &str, strategy: &str, demo: bool) -
     }
 
     let base_time = match strategy {
-        "rolling" => 600, // 10 minutes
+        "rolling" => 600,     // 10 minutes
         "all-at-once" => 900, // 15 minutes
         "blue-green" => 1200, // 20 minutes
         _ => 900,
     };
 
     // Adjust based on version difference
-    let version_multiplier = if version.starts_with("15") { 1.2 } else if version.starts_with("16") { 1.5 } else { 1.0 };
+    let version_multiplier = if version.starts_with("15") {
+        1.2
+    } else if version.starts_with("16") {
+        1.5
+    } else {
+        1.0
+    };
     let adjusted_time = (base_time as f64 * version_multiplier) as u32;
 
     if adjusted_time < 60 {
@@ -344,14 +429,14 @@ async fn create_upgrade_backup(node_id: &str) -> Result<()> {
     // 1. Create a full backup of the node
     // 2. Verify backup integrity
     // 3. Store backup metadata
-    
+
     println!("  Creating full backup of {}...", node_id);
     println!("  Verifying backup integrity...");
     println!("  Storing backup metadata...");
-    
+
     // Simulate backup delay
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    
+
     Ok(())
 }
 
@@ -364,7 +449,10 @@ async fn execute_upgrade(
     demo: bool,
 ) -> Result<UpgradeInfo> {
     if demo {
-        println!("  [DEMO MODE] Simulating PostgreSQL upgrade to {} on {}...", version, target_node.node_id);
+        println!(
+            "  [DEMO MODE] Simulating PostgreSQL upgrade to {} on {}...",
+            version, target_node.node_id
+        );
         // Skip sleep in demo mode for faster tests
         return Ok(UpgradeInfo {
             upgrade_id: format!("upgrade-{}", chrono::Utc::now().timestamp()),
@@ -386,27 +474,27 @@ async fn execute_upgrade(
     // 1. Check available disk space
     // 2. Verify PostgreSQL is running
     // 3. Check current version
-    
+
     println!("  Step 2: Starting PostgreSQL upgrade to {}...", version);
     // In production, this would:
     // 1. Stop PostgreSQL
     // 2. Install new version
     // 3. Run upgrade scripts
-    
+
     println!("  Step 3: Monitoring upgrade progress...");
     // In production, this would:
     // 1. Monitor upgrade progress
     // 2. Check for errors
     // 3. Verify new version
-    
+
     println!("  Step 4: Finalizing upgrade...");
     // In production, this would:
     // 1. Verify upgrade completion
     // 2. Update cluster metadata
     // 3. Restart PostgreSQL
-    
+
     println!("  ✅ Upgrade completed successfully!");
-    
+
     Ok(UpgradeInfo {
         upgrade_id: format!("upgrade-{}", chrono::Utc::now().timestamp()),
         target_node: target_node.node_id.clone(),
@@ -427,14 +515,14 @@ fn get_user_confirmation(prompt: &str, demo: bool) -> Result<bool> {
         // In demo mode, automatically return true to avoid blocking tests
         return Ok(true);
     }
-    
+
     use std::io::{self, Write};
-    
+
     print!("{}", prompt);
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     Ok(input.trim().to_lowercase() == "y" || input.trim().to_lowercase() == "yes")
-} 
+}

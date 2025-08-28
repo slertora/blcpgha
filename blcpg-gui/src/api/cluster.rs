@@ -1,23 +1,23 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
-use axum::{
-    response::Json,
-};
-use crate::models::{ClusterStatus, ApiResponse};
+use crate::models::{ApiResponse, ClusterStatus};
+use axum::response::Json;
 use reqwest::Client;
 
 pub async fn get_status() -> Json<ApiResponse<ClusterStatus>> {
     // Create HTTP client
     let client = Client::new();
-    
+
     // Try to fetch real data from blcpg-ha
-    match client.get("http://localhost:8080/api/v1/cluster/status").send().await {
+    match client
+        .get("http://localhost:8080/api/v1/cluster/status")
+        .send()
+        .await
+    {
         Ok(response) => {
             match response.json::<ClusterStatus>().await {
-                Ok(cluster_status) => {
-                    Json(ApiResponse::success(cluster_status))
-                }
+                Ok(cluster_status) => Json(ApiResponse::success(cluster_status)),
                 Err(_) => {
                     // Fallback to mock data if parsing fails
                     let mock_status = ClusterStatus {
@@ -49,4 +49,4 @@ pub async fn get_status() -> Json<ApiResponse<ClusterStatus>> {
             Json(ApiResponse::success(mock_status))
         }
     }
-} 
+}

@@ -5,4 +5,4 @@ use tower_http::services::ServeDir;
 
 pub fn static_handler() -> ServeDir {
     ServeDir::new("static")
-} 
+}

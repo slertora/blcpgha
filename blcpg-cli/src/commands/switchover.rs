@@ -16,7 +16,10 @@ pub async fn execute(
     println!("{}", "=".repeat(25));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
@@ -24,11 +27,19 @@ pub async fn execute(
     let cluster_status = client.get_cluster_status().await?;
 
     println!("Target Node: {}", target.bold());
-    println!("Wait for Sync: {}", if wait_sync { "Yes".green() } else { "No".yellow() });
+    println!(
+        "Wait for Sync: {}",
+        if wait_sync {
+            "Yes".green()
+        } else {
+            "No".yellow()
+        }
+    );
     println!();
 
     // Find target node
-    let target_node = cluster_status.nodes
+    let target_node = cluster_status
+        .nodes
         .iter()
         .find(|node| node.node_id == target)
         .ok_or_else(|| anyhow::anyhow!("Target node '{}' not found in cluster", target))?;
@@ -58,7 +69,8 @@ pub async fn execute(
     }
 
     // Find current primary
-    let current_primary = cluster_status.nodes
+    let current_primary = cluster_status
+        .nodes
         .iter()
         .find(|node| node.is_primary)
         .ok_or_else(|| anyhow::anyhow!("No primary node found in cluster"))?;
@@ -66,15 +78,28 @@ pub async fn execute(
     println!("{}", "Switchover Analysis:".bold().cyan());
     println!("  Current Primary: {}", current_primary.node_id.bold());
     println!("  Target Node: {}", target_node.node_id.bold());
-    println!("  Target Health: {}", if target_node.is_healthy { "Healthy".green() } else { "Unhealthy".red() });
+    println!(
+        "  Target Health: {}",
+        if target_node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
+    );
     println!("  Target Health Score: {:.2}%", target_node.health_score);
-    println!("  Replication Lag: {}", get_replication_lag_text(target_node.replication_lag_seconds));
+    println!(
+        "  Replication Lag: {}",
+        get_replication_lag_text(target_node.replication_lag_seconds)
+    );
     println!();
 
     // Validate switchover conditions
     if !demo {
-        println!("{}", "Step 1: Validating switchover conditions...".bold().cyan());
-        
+        println!(
+            "{}",
+            "Step 1: Validating switchover conditions...".bold().cyan()
+        );
+
         // Check if target node is in sync
         if wait_sync {
             println!("  Waiting for target node to be in sync...");
@@ -102,14 +127,23 @@ pub async fn execute(
 
     // Show impact analysis
     println!("{}", "Impact Analysis:".bold().cyan());
-    println!("  Current Primary: {} (will be demoted)", current_primary.node_id.bold());
-    println!("  New Primary: {} (will be promoted)", target_node.node_id.bold());
+    println!(
+        "  Current Primary: {} (will be demoted)",
+        current_primary.node_id.bold()
+    );
+    println!(
+        "  New Primary: {} (will be promoted)",
+        target_node.node_id.bold()
+    );
     println!("  Downtime: {}", "Minimal (planned switchover)".green());
     println!("  Data Loss: {}", "None (synchronous switchover)".green());
     println!();
 
     // Final confirmation
-    let response = get_user_confirmation(&format!("Do you want to perform switchover to {}? (y/N): ", target), demo)?;
+    let response = get_user_confirmation(
+        &format!("Do you want to perform switchover to {}? (y/N): ", target),
+        demo,
+    )?;
     if !response {
         println!("Switchover cancelled.");
         return Ok(());
@@ -123,20 +157,33 @@ pub async fn execute(
         Ok(_) => {
             println!("{}", "✅ Switchover successful!".green().bold());
             println!("New Primary: {}", target.green().bold());
-            println!("Previous Primary: {}", current_primary.node_id.yellow().bold());
-            
+            println!(
+                "Previous Primary: {}",
+                current_primary.node_id.yellow().bold()
+            );
+
             // Show updated cluster status
             println!();
             println!("{}", "Updated Cluster Status:".bold().cyan());
             let updated_cluster = client.get_cluster_status().await?;
             println!("Total Nodes: {}", updated_cluster.total_nodes);
             println!("Healthy Nodes: {}", updated_cluster.healthy_nodes);
-            
+
             // Show the new primary status
             if let Some(new_primary) = updated_cluster.nodes.iter().find(|n| n.node_id == target) {
-                println!("New Primary Status: {}", if new_primary.is_primary { "Primary".green() } else { "Not Primary".red() });
+                println!(
+                    "New Primary Status: {}",
+                    if new_primary.is_primary {
+                        "Primary".green()
+                    } else {
+                        "Not Primary".red()
+                    }
+                );
                 println!("Health Score: {:.2}%", new_primary.health_score);
-                println!("Replication Lag: {}", get_replication_lag_text(new_primary.replication_lag_seconds));
+                println!(
+                    "Replication Lag: {}",
+                    get_replication_lag_text(new_primary.replication_lag_seconds)
+                );
             }
         }
         Err(e) => {
@@ -182,25 +229,25 @@ async fn execute_switchover(
     // 1. Set read-only mode on current primary
     // 2. Wait for all transactions to complete
     // 3. Verify replication lag is minimal
-    
+
     println!("  Step 2: Promoting target node to primary...");
     // In production, this would:
     // 1. Execute pg_ctl promote on target node
     // 2. Verify promotion was successful
     // 3. Update cluster configuration
-    
+
     println!("  Step 3: Reconfiguring other replicas...");
     // In production, this would:
     // 1. Update primary_conninfo on other replicas
     // 2. Restart replication on other replicas
     // 3. Verify all replicas are connected to new primary
-    
+
     println!("  Step 4: Verifying switchover...");
     // In production, this would:
     // 1. Check that target node is now primary
     // 2. Verify all replicas are replicating from new primary
     // 3. Check that applications can connect to new primary
-    
+
     if wait_sync {
         println!("  Step 5: Waiting for replication to sync...");
         // In production, this would:
@@ -208,9 +255,9 @@ async fn execute_switchover(
         // 2. Wait until lag is minimal
         // 3. Verify all replicas are in sync
     }
-    
+
     println!("  ✅ Switchover completed successfully!");
-    
+
     Ok(())
 }
 
@@ -219,14 +266,14 @@ fn get_user_confirmation(prompt: &str, demo: bool) -> Result<bool> {
         // In demo mode, automatically return true to avoid blocking tests
         return Ok(true);
     }
-    
+
     use std::io::{self, Write};
-    
+
     print!("{}", prompt);
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     Ok(input.trim().to_lowercase() == "y" || input.trim().to_lowercase() == "yes")
-} 
+}

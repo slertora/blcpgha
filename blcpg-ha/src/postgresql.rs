@@ -3,9 +3,9 @@
 
 use crate::config::PostgreSQLConfig;
 use anyhow::Result;
-use tokio_postgres::NoTls;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio_postgres::NoTls;
 use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ impl PostgreSQLConnection {
         );
 
         let (client, connection) = tokio_postgres::connect(&connection_string, NoTls).await?;
-        
+
         // Spawn the connection to run in the background
         tokio::spawn(async move {
             if let Err(e) = connection.await {
@@ -32,14 +32,17 @@ impl PostgreSQLConnection {
 
         let client = Arc::new(Mutex::new(client));
 
-        info!("PostgreSQL connection established to {}:{}", config.host, config.port);
+        info!(
+            "PostgreSQL connection established to {}:{}",
+            config.host, config.port
+        );
 
         Ok(Self { client, config })
     }
 
     pub async fn health_check(&self) -> Result<bool> {
         let client = self.client.lock().await;
-        
+
         match client.simple_query("SELECT 1").await {
             Ok(_) => {
                 debug!("PostgreSQL health check passed");
@@ -54,7 +57,7 @@ impl PostgreSQLConnection {
 
     pub async fn get_replication_lag(&self) -> Result<Option<u64>> {
         let client = self.client.lock().await;
-        
+
         let query = "
             SELECT 
                 CASE 
@@ -78,7 +81,7 @@ impl PostgreSQLConnection {
 
     pub async fn is_primary(&self) -> Result<bool> {
         let client = self.client.lock().await;
-        
+
         match client.query_one("SELECT pg_is_in_recovery()", &[]).await {
             Ok(row) => {
                 let in_recovery: bool = row.get(0);
@@ -93,11 +96,11 @@ impl PostgreSQLConnection {
 
     pub async fn promote(&self) -> Result<bool> {
         let client = self.client.lock().await;
-        
+
         // Check if we're in recovery mode
         let row = client.query_one("SELECT pg_is_in_recovery()", &[]).await?;
         let in_recovery: bool = row.get(0);
-        
+
         if !in_recovery {
             info!("Already primary, no promotion needed");
             return Ok(true);
@@ -122,7 +125,7 @@ impl PostgreSQLConnection {
 
     pub async fn get_server_version(&self) -> Result<Option<String>> {
         let client = self.client.lock().await;
-        
+
         match client.query_one("SELECT version()", &[]).await {
             Ok(row) => {
                 let version: String = row.get(0);
@@ -137,7 +140,7 @@ impl PostgreSQLConnection {
 
     pub async fn get_current_wal_lsn(&self) -> Result<Option<String>> {
         let client = self.client.lock().await;
-        
+
         let query = "
             SELECT 
                 CASE 
@@ -163,4 +166,4 @@ impl PostgreSQLConnection {
 
 pub async fn connect(config: &PostgreSQLConfig) -> Result<PostgreSQLConnection> {
     PostgreSQLConnection::new(config.clone()).await
-} 
+}

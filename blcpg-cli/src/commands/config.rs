@@ -61,22 +61,33 @@ pub async fn execute(
     println!("{}", "=".repeat(32));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
     // Get current cluster status to validate target node
     let cluster_status = client.get_cluster_status().await?;
-    
+
     // Validate target node exists
-    let target_node = cluster_status.nodes
+    let target_node = cluster_status
+        .nodes
         .iter()
         .find(|node| node.node_id == target)
         .ok_or_else(|| anyhow::anyhow!("Target node '{}' not found in cluster", target))?;
 
     println!("Configuration Details:");
     println!("  Target Node: {}", target_node.node_id.bold());
-    println!("  Target Health: {}", if target_node.is_healthy { "Healthy".green() } else { "Unhealthy".red() });
+    println!(
+        "  Target Health: {}",
+        if target_node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
+    );
     println!("  Target Health Score: {:.2}%", target_node.health_score);
     println!("  Action: {}", action.bold());
     println!("  Config File: {}", file.bold());
@@ -116,10 +127,10 @@ async fn execute_get_config(
     demo: bool,
 ) -> Result<()> {
     println!("{}", "Getting configuration...".bold().cyan());
-    
+
     if demo {
         println!("  [DEMO MODE] Simulating configuration retrieval...");
-        
+
         // Simulate config content
         let config_content = r#"
 # BLC PostgreSQL HA Configuration
@@ -150,12 +161,12 @@ manager = "keepalived"
 interface = "eth0"
 virtual_ip = "192.168.1.100"
 "#;
-        
+
         println!("  ✅ Configuration retrieved successfully!");
         println!();
         println!("{}", "Configuration Content:".bold());
         println!("{}", config_content);
-        
+
         return Ok(());
     }
 
@@ -164,11 +175,11 @@ virtual_ip = "192.168.1.100"
     // 2. Read the configuration file
     // 3. Parse and format the content
     // 4. Return the configuration
-    
+
     println!("  Connecting to {}...", target_node.node_id);
     println!("  Reading configuration file: {}", file);
     println!("  ✅ Configuration retrieved successfully!");
-    
+
     Ok(())
 }
 
@@ -181,30 +192,45 @@ async fn execute_set_config(
     demo: bool,
 ) -> Result<()> {
     println!("{}", "Setting configuration...".bold().cyan());
-    
+
     let key = key.ok_or_else(|| anyhow::anyhow!("Key is required for 'set' action"))?;
     let value = value.ok_or_else(|| anyhow::anyhow!("Value is required for 'set' action"))?;
-    
+
     println!("  Key: {}", key.bold());
     println!("  Value: {}", value.bold());
     println!();
 
     // Validate key format
     if !is_valid_config_key(&key) {
-        println!("{}", "ERROR: Invalid configuration key format!".red().bold());
+        println!(
+            "{}",
+            "ERROR: Invalid configuration key format!".red().bold()
+        );
         println!("Expected format: section.key (e.g., server.port, postgresql.host)");
         return Ok(());
     }
 
     // Show impact analysis
     println!("{}", "Impact Analysis:".bold().cyan());
-    println!("  Target Node: {} ({})", 
-        target_node.node_id.bold(), 
-        if target_node.is_primary { "Primary".red() } else { "Replica".green() }
+    println!(
+        "  Target Node: {} ({})",
+        target_node.node_id.bold(),
+        if target_node.is_primary {
+            "Primary".red()
+        } else {
+            "Replica".green()
+        }
     );
     println!("  Configuration File: {}", file.bold());
     println!("  Change: {} = {}", key.bold(), value.bold());
-    println!("  Restart Required: {}", if requires_restart(&key) { "Yes".yellow() } else { "No".green() });
+    println!(
+        "  Restart Required: {}",
+        if requires_restart(&key) {
+            "Yes".yellow()
+        } else {
+            "No".green()
+        }
+    );
     println!();
 
     if demo {
@@ -214,7 +240,13 @@ async fn execute_set_config(
         println!("  ✅ Service restarted successfully!");
     } else {
         // Get user confirmation
-        let response = get_user_confirmation(&format!("Do you want to update configuration on {}? (y/N): ", target_node.node_id), demo)?;
+        let response = get_user_confirmation(
+            &format!(
+                "Do you want to update configuration on {}? (y/N): ",
+                target_node.node_id
+            ),
+            demo,
+        )?;
         if !response {
             println!("Configuration update cancelled.");
             return Ok(());
@@ -223,7 +255,7 @@ async fn execute_set_config(
         println!("  Updating configuration on {}...", target_node.node_id);
         println!("  Writing to {}...", file);
         println!("  ✅ Configuration updated successfully!");
-        
+
         if requires_restart(&key) {
             println!("  Restarting service...");
             println!("  ✅ Service restarted successfully!");
@@ -240,7 +272,7 @@ async fn execute_validate_config(
     demo: bool,
 ) -> Result<()> {
     println!("{}", "Validating configuration...".bold().cyan());
-    
+
     if demo {
         println!("  [DEMO MODE] Simulating configuration validation...");
         println!("  ✅ Configuration validation completed!");
@@ -253,7 +285,7 @@ async fn execute_validate_config(
         println!("  ✅ Cluster settings: Valid");
         println!("  ⚠️  Performance: Consider increasing connection pool");
         println!("  ✅ Security: Valid");
-        
+
         return Ok(());
     }
 
@@ -264,7 +296,7 @@ async fn execute_validate_config(
     println!("  Validating PostgreSQL settings...");
     println!("  Checking cluster settings...");
     println!("  ✅ Configuration validation completed!");
-    
+
     Ok(())
 }
 
@@ -275,18 +307,25 @@ async fn execute_backup_config(
     demo: bool,
 ) -> Result<()> {
     println!("{}", "Backing up configuration...".bold().cyan());
-    
+
     if demo {
         println!("  [DEMO MODE] Simulating configuration backup...");
         println!("  ✅ Configuration backup completed!");
-        println!("  Backup file: {}.backup.{}", file, chrono::Utc::now().timestamp());
-        
+        println!(
+            "  Backup file: {}.backup.{}",
+            file,
+            chrono::Utc::now().timestamp()
+        );
+
         return Ok(());
     }
 
-    println!("  Creating backup of {} on {}...", file, target_node.node_id);
+    println!(
+        "  Creating backup of {} on {}...",
+        file, target_node.node_id
+    );
     println!("  ✅ Configuration backup completed!");
-    
+
     Ok(())
 }
 
@@ -297,11 +336,11 @@ async fn execute_restore_config(
     demo: bool,
 ) -> Result<()> {
     println!("{}", "Restoring configuration...".bold().cyan());
-    
+
     if demo {
         println!("  [DEMO MODE] Simulating configuration restore...");
         println!("  ✅ Configuration restore completed!");
-        
+
         return Ok(());
     }
 
@@ -314,7 +353,7 @@ async fn execute_restore_config(
 
     println!("  Restoring configuration on {}...", target_node.node_id);
     println!("  ✅ Configuration restore completed!");
-    
+
     Ok(())
 }
 
@@ -327,10 +366,15 @@ fn is_valid_config_key(key: &str) -> bool {
 fn requires_restart(key: &str) -> bool {
     // Keys that require service restart
     let restart_keys = [
-        "server.host", "server.port", "postgresql.host", "postgresql.port",
-        "cluster.name", "consensus_backend", "raft_port"
+        "server.host",
+        "server.port",
+        "postgresql.host",
+        "postgresql.port",
+        "cluster.name",
+        "consensus_backend",
+        "raft_port",
     ];
-    
+
     restart_keys.contains(&key)
 }
 
@@ -339,14 +383,14 @@ fn get_user_confirmation(prompt: &str, demo: bool) -> Result<bool> {
         // In demo mode, automatically return true to avoid blocking tests
         return Ok(true);
     }
-    
+
     use std::io::{self, Write};
-    
+
     print!("{}", prompt);
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     Ok(input.trim().to_lowercase() == "y" || input.trim().to_lowercase() == "yes")
-} 
+}

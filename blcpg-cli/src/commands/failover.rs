@@ -16,7 +16,10 @@ pub async fn execute(
     println!("{}", "=".repeat(20));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
@@ -24,11 +27,19 @@ pub async fn execute(
     let cluster_status = client.get_cluster_status().await?;
 
     println!("Target Selection: {}", target.bold());
-    println!("Notifications: {}", if notify { "Enabled".green() } else { "Disabled".yellow() });
+    println!(
+        "Notifications: {}",
+        if notify {
+            "Enabled".green()
+        } else {
+            "Disabled".yellow()
+        }
+    );
     println!();
 
     // Find current primary
-    let current_primary = cluster_status.nodes
+    let current_primary = cluster_status
+        .nodes
         .iter()
         .find(|node| node.is_primary)
         .ok_or_else(|| anyhow::anyhow!("No primary node found in cluster"))?;
@@ -39,8 +50,9 @@ pub async fn execute(
         println!("Primary Node: {}", current_primary.node_id.bold());
         println!("Health Score: {:.2}%", current_primary.health_score);
         println!();
-        
-        let response = get_user_confirmation("Do you want to force failover anyway? (y/N): ", demo)?;
+
+        let response =
+            get_user_confirmation("Do you want to force failover anyway? (y/N): ", demo)?;
         if !response {
             println!("Failover cancelled.");
             return Ok(());
@@ -51,7 +63,8 @@ pub async fn execute(
     let target_node = if target == "auto" {
         select_best_failover_candidate(&cluster_status.nodes, demo)?
     } else {
-        cluster_status.nodes
+        cluster_status
+            .nodes
             .iter()
             .find(|node| node.node_id == target)
             .ok_or_else(|| anyhow::anyhow!("Target node '{}' not found in cluster", target))?
@@ -59,8 +72,11 @@ pub async fn execute(
 
     // Validate failover conditions
     if !demo {
-        println!("{}", "Step 1: Validating failover conditions...".bold().cyan());
-        
+        println!(
+            "{}",
+            "Step 1: Validating failover conditions...".bold().cyan()
+        );
+
         // Check if target node is healthy
         if !target_node.is_healthy && !force {
             println!("{}", "ERROR: Target node is not healthy!".red().bold());
@@ -81,29 +97,61 @@ pub async fn execute(
     }
 
     println!("{}", "Failover Analysis:".bold().cyan());
-    println!("  Current Primary: {} ({})", 
-        current_primary.node_id.bold(), 
-        if current_primary.is_healthy { "Healthy".green() } else { "Unhealthy".red() }
+    println!(
+        "  Current Primary: {} ({})",
+        current_primary.node_id.bold(),
+        if current_primary.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
     );
-    println!("  Target Node: {} ({})", 
-        target_node.node_id.bold(), 
-        if target_node.is_healthy { "Healthy".green() } else { "Unhealthy".red() }
+    println!(
+        "  Target Node: {} ({})",
+        target_node.node_id.bold(),
+        if target_node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
     );
     println!("  Target Health Score: {:.2}%", target_node.health_score);
-    println!("  Replication Lag: {}", get_replication_lag_text(target_node.replication_lag_seconds));
+    println!(
+        "  Replication Lag: {}",
+        get_replication_lag_text(target_node.replication_lag_seconds)
+    );
     println!();
 
     // Show impact analysis
     println!("{}", "Impact Analysis:".bold().cyan());
-    println!("  Current Primary: {} (will be demoted)", current_primary.node_id.bold());
-    println!("  New Primary: {} (will be promoted)", target_node.node_id.bold());
+    println!(
+        "  Current Primary: {} (will be demoted)",
+        current_primary.node_id.bold()
+    );
+    println!(
+        "  New Primary: {} (will be promoted)",
+        target_node.node_id.bold()
+    );
     println!("  Downtime: {}", "Minimal (automatic failover)".green());
     println!("  Data Loss: {}", "None (synchronous replication)".green());
-    println!("  Notifications: {}", if notify { "Enabled".green() } else { "Disabled".yellow() });
+    println!(
+        "  Notifications: {}",
+        if notify {
+            "Enabled".green()
+        } else {
+            "Disabled".yellow()
+        }
+    );
     println!();
 
     // Final confirmation
-    let response = get_user_confirmation(&format!("Do you want to perform failover to {}? (y/N): ", target_node.node_id), demo)?;
+    let response = get_user_confirmation(
+        &format!(
+            "Do you want to perform failover to {}? (y/N): ",
+            target_node.node_id
+        ),
+        demo,
+    )?;
     if !response {
         println!("Failover cancelled.");
         return Ok(());
@@ -117,30 +165,47 @@ pub async fn execute(
         Ok(_) => {
             println!("{}", "✅ Failover successful!".green().bold());
             println!("New Primary: {}", target_node.node_id.green().bold());
-            println!("Previous Primary: {}", current_primary.node_id.yellow().bold());
-            
+            println!(
+                "Previous Primary: {}",
+                current_primary.node_id.yellow().bold()
+            );
+
             if notify {
                 println!("{}", "📧 Notifications sent to administrators".blue());
             }
-            
+
             // Show updated cluster status
             println!();
             println!("{}", "Updated Cluster Status:".bold().cyan());
             let updated_cluster = client.get_cluster_status().await?;
             println!("Total Nodes: {}", updated_cluster.total_nodes);
             println!("Healthy Nodes: {}", updated_cluster.healthy_nodes);
-            
+
             // Show the new primary status
-            if let Some(new_primary) = updated_cluster.nodes.iter().find(|n| n.node_id == target_node.node_id) {
-                println!("New Primary Status: {}", if new_primary.is_primary { "Primary".green() } else { "Not Primary".red() });
+            if let Some(new_primary) = updated_cluster
+                .nodes
+                .iter()
+                .find(|n| n.node_id == target_node.node_id)
+            {
+                println!(
+                    "New Primary Status: {}",
+                    if new_primary.is_primary {
+                        "Primary".green()
+                    } else {
+                        "Not Primary".red()
+                    }
+                );
                 println!("Health Score: {:.2}%", new_primary.health_score);
-                println!("Replication Lag: {}", get_replication_lag_text(new_primary.replication_lag_seconds));
+                println!(
+                    "Replication Lag: {}",
+                    get_replication_lag_text(new_primary.replication_lag_seconds)
+                );
             }
         }
         Err(e) => {
             println!("{}", "❌ Failover failed!".red().bold());
             println!("Error: {}", e);
-            
+
             if notify {
                 println!("{}", "📧 Alert notifications sent to administrators".red());
             }
@@ -150,11 +215,15 @@ pub async fn execute(
     Ok(())
 }
 
-fn select_best_failover_candidate<'a>(nodes: &'a [crate::client::NodeInfo], demo: bool) -> Result<&'a crate::client::NodeInfo> {
+fn select_best_failover_candidate<'a>(
+    nodes: &'a [crate::client::NodeInfo],
+    demo: bool,
+) -> Result<&'a crate::client::NodeInfo> {
     if demo {
         println!("  [DEMO MODE] Simulating best candidate selection...");
         // In demo mode, return the first non-primary node
-        return nodes.iter()
+        return nodes
+            .iter()
             .find(|node| !node.is_primary)
             .ok_or_else(|| anyhow::anyhow!("No suitable candidate found for failover"));
     }
@@ -166,28 +235,37 @@ fn select_best_failover_candidate<'a>(nodes: &'a [crate::client::NodeInfo], demo
         .collect();
 
     if candidates.is_empty() {
-        return Err(anyhow::anyhow!("No healthy candidates available for failover"));
+        return Err(anyhow::anyhow!(
+            "No healthy candidates available for failover"
+        ));
     }
 
     // Sort by health score (descending) and replication lag (ascending)
     let mut sorted_candidates = candidates;
     sorted_candidates.sort_by(|a, b| {
         // Primary sort: health score (descending)
-        let health_comparison = b.health_score.partial_cmp(&a.health_score).unwrap_or(std::cmp::Ordering::Equal);
+        let health_comparison = b
+            .health_score
+            .partial_cmp(&a.health_score)
+            .unwrap_or(std::cmp::Ordering::Equal);
         if health_comparison != std::cmp::Ordering::Equal {
             return health_comparison;
         }
-        
+
         // Secondary sort: replication lag (ascending)
         let lag_a = a.replication_lag_seconds.unwrap_or(f64::MAX);
         let lag_b = b.replication_lag_seconds.unwrap_or(f64::MAX);
-        lag_a.partial_cmp(&lag_b).unwrap_or(std::cmp::Ordering::Equal)
+        lag_a
+            .partial_cmp(&lag_b)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    let best_candidate = sorted_candidates.first()
+    let best_candidate = sorted_candidates
+        .first()
         .ok_or_else(|| anyhow::anyhow!("No suitable candidate found for failover"))?;
 
-    println!("  Selected best candidate: {} (Health: {:.2}%, Lag: {})", 
+    println!(
+        "  Selected best candidate: {} (Health: {:.2}%, Lag: {})",
         best_candidate.node_id.bold(),
         best_candidate.health_score,
         get_replication_lag_text(best_candidate.replication_lag_seconds)
@@ -238,28 +316,28 @@ async fn execute_failover(
     // 1. Verify primary is actually down (not just network issue)
     // 2. Check if primary is recoverable
     // 3. Determine if failover is necessary
-    
+
     println!("  Step 3: Promoting target node to primary...");
     // In production, this would:
     // 1. Execute pg_ctl promote on target node
     // 2. Verify promotion was successful
     // 3. Update cluster configuration
-    
+
     println!("  Step 4: Reconfiguring other replicas...");
     // In production, this would:
     // 1. Update primary_conninfo on other replicas
     // 2. Restart replication on other replicas
     // 3. Verify all replicas are connected to new primary
-    
+
     println!("  Step 5: Verifying failover...");
     // In production, this would:
     // 1. Check that target node is now primary
     // 2. Verify all replicas are replicating from new primary
     // 3. Check that applications can connect to new primary
     // 4. Run health checks on new primary
-    
+
     println!("  ✅ Failover completed successfully!");
-    
+
     Ok(())
 }
 
@@ -268,14 +346,14 @@ fn get_user_confirmation(prompt: &str, demo: bool) -> Result<bool> {
         // In demo mode, automatically return true to avoid blocking tests
         return Ok(true);
     }
-    
+
     use std::io::{self, Write};
-    
+
     print!("{}", prompt);
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     Ok(input.trim().to_lowercase() == "y" || input.trim().to_lowercase() == "yes")
-} 
+}

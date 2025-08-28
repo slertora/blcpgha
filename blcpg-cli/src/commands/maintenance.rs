@@ -3,8 +3,8 @@
 
 use crate::client::ApiClientTrait;
 use anyhow::Result;
-use colored::*;
 use chrono::{DateTime, Utc};
+use colored::*;
 
 #[derive(Debug, Clone)]
 pub struct MaintenanceInfo {
@@ -52,7 +52,10 @@ pub async fn execute(
     println!("{}", "=".repeat(22));
 
     if demo {
-        println!("{}", "DEMO MODE ENABLED - Simulating operations".yellow().bold());
+        println!(
+            "{}",
+            "DEMO MODE ENABLED - Simulating operations".yellow().bold()
+        );
         println!();
     }
 
@@ -63,14 +66,22 @@ pub async fn execute(
     println!("  Target Selection: {}", target.bold());
     println!("  Maintenance Type: {}", maintenance_type.bold());
     println!("  Level: {}", level.bold());
-    println!("  Background: {}", if background { "Enabled".green() } else { "Disabled".yellow() });
+    println!(
+        "  Background: {}",
+        if background {
+            "Enabled".green()
+        } else {
+            "Disabled".yellow()
+        }
+    );
     println!();
 
     // Select target node for maintenance
     let target_node = if target == "auto" {
         select_best_maintenance_target(&cluster_status.nodes, maintenance_type, demo)?
     } else {
-        cluster_status.nodes
+        cluster_status
+            .nodes
             .iter()
             .find(|node| node.node_id == target)
             .ok_or_else(|| anyhow::anyhow!("Target node '{}' not found in cluster", target))?
@@ -78,8 +89,11 @@ pub async fn execute(
 
     // Validate maintenance conditions
     if !demo {
-        println!("{}", "Step 1: Validating maintenance conditions...".bold().cyan());
-        
+        println!(
+            "{}",
+            "Step 1: Validating maintenance conditions...".bold().cyan()
+        );
+
         // Check if target node is healthy
         if !target_node.is_healthy {
             println!("{}", "ERROR: Target node is not healthy!".red().bold());
@@ -103,46 +117,90 @@ pub async fn execute(
 
     // Show maintenance analysis
     println!("{}", "Maintenance Analysis:".bold().cyan());
-    println!("  Target Node: {} ({})", 
-        target_node.node_id.bold(), 
-        if target_node.is_primary { "Primary".red() } else { "Replica".green() }
+    println!(
+        "  Target Node: {} ({})",
+        target_node.node_id.bold(),
+        if target_node.is_primary {
+            "Primary".red()
+        } else {
+            "Replica".green()
+        }
     );
-    println!("  Target Health: {}", if target_node.is_healthy { "Healthy".green() } else { "Unhealthy".red() });
+    println!(
+        "  Target Health: {}",
+        if target_node.is_healthy {
+            "Healthy".green()
+        } else {
+            "Unhealthy".red()
+        }
+    );
     println!("  Target Health Score: {:.2}%", target_node.health_score);
     println!("  Maintenance Type: {}", maintenance_type.bold());
     println!("  Level: {}", level.bold());
-    println!("  Background Mode: {}", if background { "Enabled".green() } else { "Disabled".yellow() });
+    println!(
+        "  Background Mode: {}",
+        if background {
+            "Enabled".green()
+        } else {
+            "Disabled".yellow()
+        }
+    );
     println!();
 
     // Calculate estimated maintenance time and impact
     let estimated_time = calculate_estimated_maintenance_time(maintenance_type, level, demo)?;
-    let estimated_impact = calculate_maintenance_impact(maintenance_type, level, target_node.is_primary);
+    let estimated_impact =
+        calculate_maintenance_impact(maintenance_type, level, target_node.is_primary);
 
     println!("{}", "Maintenance Estimation:".bold().cyan());
     println!("  Estimated Time: {}", estimated_time);
     println!("  Performance Impact: {}", estimated_impact);
-    println!("  Space Savings: {}", estimate_space_savings(maintenance_type, level));
+    println!(
+        "  Space Savings: {}",
+        estimate_space_savings(maintenance_type, level)
+    );
     println!();
 
     // Show impact analysis
     println!("{}", "Impact Analysis:".bold().cyan());
     if target_node.is_primary && !background {
-        println!("  Database Impact: {}", "HIGH - Primary node performance affected".red());
-        println!("  Cluster Impact: {}", "MEDIUM - May affect write performance".yellow());
-        println!("  Downtime: {}", "Minimal (maintenance operations)".yellow());
+        println!(
+            "  Database Impact: {}",
+            "HIGH - Primary node performance affected".red()
+        );
+        println!(
+            "  Cluster Impact: {}",
+            "MEDIUM - May affect write performance".yellow()
+        );
+        println!(
+            "  Downtime: {}",
+            "Minimal (maintenance operations)".yellow()
+        );
     } else if background {
-        println!("  Database Impact: {}", "LOW - Background operation".green());
+        println!(
+            "  Database Impact: {}",
+            "LOW - Background operation".green()
+        );
         println!("  Cluster Impact: {}", "MINIMAL - No user impact".green());
         println!("  Downtime: {}", "None".green());
     } else {
         println!("  Database Impact: {}", "LOW - Replica node only".green());
-        println!("  Cluster Impact: {}", "MINIMAL - Primary remains available".green());
+        println!(
+            "  Cluster Impact: {}",
+            "MINIMAL - Primary remains available".green()
+        );
         println!("  Downtime: {}", "None".green());
     }
     println!();
 
     // Final confirmation
-    let response = get_user_confirmation(&format!("Do you want to start {} maintenance on {}? (y/N): ", maintenance_type, target_node.node_id), demo)?;
+    let response = get_user_confirmation(
+        &format!(
+            "Do you want to start {} maintenance on {}? (y/N): ",
+            maintenance_type, target_node.node_id
+        ),
+        demo,
+    )?;
     if !response {
         println!("Maintenance cancelled.");
         return Ok(());
@@ -152,16 +210,34 @@ pub async fn execute(
     println!("{}", "Starting intelligent maintenance...".bold().cyan());
 
     // Execute the maintenance
-    match execute_maintenance(client, target_node, maintenance_type, level, background, demo).await {
+    match execute_maintenance(
+        client,
+        target_node,
+        maintenance_type,
+        level,
+        background,
+        demo,
+    )
+    .await
+    {
         Ok(maintenance_info) => {
-            println!("{}", "✅ Maintenance completed successfully!".green().bold());
+            println!(
+                "{}",
+                "✅ Maintenance completed successfully!".green().bold()
+            );
             println!("Maintenance ID: {}", maintenance_info.maintenance_id.bold());
             println!("Target Node: {}", maintenance_info.target_node.bold());
-            println!("Maintenance Type: {}", maintenance_info.maintenance_type.bold());
+            println!(
+                "Maintenance Type: {}",
+                maintenance_info.maintenance_type.bold()
+            );
             println!("Level: {}", maintenance_info.level.bold());
             println!("Status: {}", maintenance_info.status);
             println!("Tables Processed: {}", maintenance_info.tables_processed);
-            println!("Space Freed: {}", format_bytes(maintenance_info.space_freed));
+            println!(
+                "Space Freed: {}",
+                format_bytes(maintenance_info.space_freed)
+            );
             if let Some(duration) = maintenance_info.duration_seconds {
                 println!("Duration: {} seconds", duration);
             }
@@ -176,14 +252,15 @@ pub async fn execute(
 }
 
 fn select_best_maintenance_target<'a>(
-    nodes: &'a [crate::client::NodeInfo], 
+    nodes: &'a [crate::client::NodeInfo],
     maintenance_type: &str,
-    demo: bool
+    demo: bool,
 ) -> Result<&'a crate::client::NodeInfo> {
     if demo {
         println!("  [DEMO MODE] Simulating best maintenance target selection...");
         // In demo mode, prefer replica nodes for safety
-        return nodes.iter()
+        return nodes
+            .iter()
             .find(|node| !node.is_primary && node.is_healthy)
             .or_else(|| nodes.iter().find(|node| node.is_primary))
             .ok_or_else(|| anyhow::anyhow!("No suitable maintenance target found"));
@@ -200,21 +277,28 @@ fn select_best_maintenance_target<'a>(
         let mut sorted_replicas = healthy_replicas;
         sorted_replicas.sort_by(|a, b| {
             // Primary sort: health score (descending)
-            let health_comparison = b.health_score.partial_cmp(&a.health_score).unwrap_or(std::cmp::Ordering::Equal);
+            let health_comparison = b
+                .health_score
+                .partial_cmp(&a.health_score)
+                .unwrap_or(std::cmp::Ordering::Equal);
             if health_comparison != std::cmp::Ordering::Equal {
                 return health_comparison;
             }
-            
+
             // Secondary sort: replication lag (ascending)
             let lag_a = a.replication_lag_seconds.unwrap_or(f64::MAX);
             let lag_b = b.replication_lag_seconds.unwrap_or(f64::MAX);
-            lag_a.partial_cmp(&lag_b).unwrap_or(std::cmp::Ordering::Equal)
+            lag_a
+                .partial_cmp(&lag_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        let best_replica = sorted_replicas.first()
+        let best_replica = sorted_replicas
+            .first()
             .ok_or_else(|| anyhow::anyhow!("No suitable maintenance target found"))?;
 
-        println!("  Selected best replica: {} (Health: {:.2}%, Lag: {})", 
+        println!(
+            "  Selected best replica: {} (Health: {:.2}%, Lag: {})",
             best_replica.node_id.bold(),
             best_replica.health_score,
             get_replication_lag_text(best_replica.replication_lag_seconds)
@@ -225,40 +309,49 @@ fn select_best_maintenance_target<'a>(
 
     // If no healthy replicas, use primary (with warning)
     if let Some(primary) = nodes.iter().find(|node| node.is_primary && node.is_healthy) {
-        println!("  ⚠️  WARNING: No healthy replicas available, using primary node: {}", primary.node_id.bold());
+        println!(
+            "  ⚠️  WARNING: No healthy replicas available, using primary node: {}",
+            primary.node_id.bold()
+        );
         return Ok(primary);
     }
 
-    Err(anyhow::anyhow!("No healthy nodes available for maintenance"))
+    Err(anyhow::anyhow!(
+        "No healthy nodes available for maintenance"
+    ))
 }
 
-fn calculate_estimated_maintenance_time(maintenance_type: &str, level: &str, demo: bool) -> Result<String> {
+fn calculate_estimated_maintenance_time(
+    maintenance_type: &str,
+    level: &str,
+    demo: bool,
+) -> Result<String> {
     if demo {
         return Ok("2-5 minutes (demo mode)".to_string());
     }
 
     let base_time = match maintenance_type {
         "vacuum" => match level {
-            "light" => 60, // 1 minute
-            "full" => 300, // 5 minutes
+            "light" => 60,       // 1 minute
+            "full" => 300,       // 5 minutes
             "aggressive" => 600, // 10 minutes
             _ => 300,
         },
         "analyze" => match level {
-            "light" => 30, // 30 seconds
-            "full" => 120, // 2 minutes
+            "light" => 30,       // 30 seconds
+            "full" => 120,       // 2 minutes
             "aggressive" => 300, // 5 minutes
             _ => 120,
         },
         "reindex" => match level {
-            "light" => 300, // 5 minutes
-            "full" => 900, // 15 minutes
+            "light" => 300,       // 5 minutes
+            "full" => 900,        // 15 minutes
             "aggressive" => 1800, // 30 minutes
             _ => 900,
         },
         "checkpoint" => match level {
-            "light" => 10, // 10 seconds
-            "full" => 60, // 1 minute
+            "light" => 10,       // 10 seconds
+            "full" => 60,        // 1 minute
             "aggressive" => 300, // 5 minutes
             _ => 60,
         },
@@ -322,19 +415,20 @@ fn estimate_space_savings(maintenance_type: &str, level: &str) -> String {
         "reindex" => "~5-15%",
         "checkpoint" => "N/A (WAL cleanup)",
         _ => "~10-25%",
-    }.to_string()
+    }
+    .to_string()
 }
 
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
     let mut size = bytes as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     format!("{:.1} {}", size, UNITS[unit_index])
 }
 
@@ -364,7 +458,10 @@ async fn execute_maintenance(
     demo: bool,
 ) -> Result<MaintenanceInfo> {
     if demo {
-        println!("  [DEMO MODE] Simulating {} maintenance on {}...", maintenance_type, target_node.node_id);
+        println!(
+            "  [DEMO MODE] Simulating {} maintenance on {}...",
+            maintenance_type, target_node.node_id
+        );
         // Skip sleep in demo mode for faster tests
         return Ok(MaintenanceInfo {
             maintenance_id: format!("maintenance-{}", chrono::Utc::now().timestamp()),
@@ -386,27 +483,30 @@ async fn execute_maintenance(
     // 1. Check available disk space
     // 2. Verify PostgreSQL is running
     // 3. Check current load
-    
-    println!("  Step 2: Starting {} maintenance (level: {})...", maintenance_type, level);
+
+    println!(
+        "  Step 2: Starting {} maintenance (level: {})...",
+        maintenance_type, level
+    );
     // In production, this would:
     // 1. Execute VACUUM, ANALYZE, REINDEX, or CHECKPOINT
     // 2. Monitor progress
     // 3. Handle errors
-    
+
     println!("  Step 3: Monitoring maintenance progress...");
     // In production, this would:
     // 1. Monitor maintenance progress
     // 2. Check for errors
     // 3. Update statistics
-    
+
     println!("  Step 4: Finalizing maintenance...");
     // In production, this would:
     // 1. Verify maintenance completion
     // 2. Update maintenance catalog
     // 3. Clean up temporary files
-    
+
     println!("  ✅ Maintenance completed successfully!");
-    
+
     Ok(MaintenanceInfo {
         maintenance_id: format!("maintenance-{}", chrono::Utc::now().timestamp()),
         target_node: target_node.node_id.clone(),
@@ -427,14 +527,14 @@ fn get_user_confirmation(prompt: &str, demo: bool) -> Result<bool> {
         // In demo mode, automatically return true to avoid blocking tests
         return Ok(true);
     }
-    
+
     use std::io::{self, Write};
-    
+
     print!("{}", prompt);
     io::stdout().flush()?;
-    
+
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    
+
     Ok(input.trim().to_lowercase() == "y" || input.trim().to_lowercase() == "yes")
-} 
+}

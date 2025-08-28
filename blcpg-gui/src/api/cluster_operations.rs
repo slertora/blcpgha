@@ -1,10 +1,10 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
-use axum::response::Json;
-use serde::{Deserialize, Serialize};
-use chrono::Utc;
 use crate::models::ApiResponse;
+use axum::response::Json;
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AddReplicaRequest {
@@ -30,7 +30,7 @@ pub struct BackupRequest {
 // Failover de emergencia
 pub async fn failover() -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/failover")
         .timeout(std::time::Duration::from_secs(30))
@@ -54,21 +54,19 @@ pub async fn failover() -> Json<ApiResponse<String>> {
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
 }
 
 // Agregar réplica
 pub async fn add_replica(Json(request): Json<AddReplicaRequest>) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/add-replica")
         .json(&request)
@@ -93,21 +91,21 @@ pub async fn add_replica(Json(request): Json<AddReplicaRequest>) -> Json<ApiResp
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
 }
 
 // Expandir cluster
-pub async fn cluster_expand(Json(request): Json<ClusterExpandRequest>) -> Json<ApiResponse<String>> {
+pub async fn cluster_expand(
+    Json(request): Json<ClusterExpandRequest>,
+) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/expand")
         .json(&request)
@@ -132,21 +130,19 @@ pub async fn cluster_expand(Json(request): Json<ClusterExpandRequest>) -> Json<A
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
 }
 
 // Crear backup
 pub async fn create_backup(Json(request): Json<BackupRequest>) -> Json<ApiResponse<String>> {
     let client = reqwest::Client::new();
-    
+
     match client
         .post("http://localhost:8080/api/v1/cluster/backup")
         .json(&request)
@@ -171,13 +167,11 @@ pub async fn create_backup(Json(request): Json<BackupRequest>) -> Json<ApiRespon
                 })
             }
         }
-        Err(_) => {
-            Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some("Cannot connect to blcpg-ha agent".to_string()),
-                timestamp: Utc::now(),
-            })
-        }
+        Err(_) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Cannot connect to blcpg-ha agent".to_string()),
+            timestamp: Utc::now(),
+        }),
     }
-} 
+}

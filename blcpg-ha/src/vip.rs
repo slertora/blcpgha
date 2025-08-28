@@ -1,14 +1,16 @@
 // MIT License
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 
-use crate::config::{VipConfig, HaproxyConfig, ProxySqlConfig, KeepalivedConfig, AwsElasticIpConfig, AwsElbConfig};
+use crate::config::{
+    AwsElasticIpConfig, AwsElbConfig, HaproxyConfig, KeepalivedConfig, ProxySqlConfig, VipConfig,
+};
 use anyhow::Result;
+use aws_sdk_ec2::{config::Credentials, config::Region, Client as Ec2Client};
+use aws_sdk_elasticloadbalancingv2::Client as ElbClient;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::process::Command;
-use aws_sdk_ec2::{Client as Ec2Client, config::Region, config::Credentials};
-use aws_sdk_elasticloadbalancingv2::Client as ElbClient;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
@@ -60,9 +62,11 @@ impl VipManager {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
-        
+
         // Initialize AWS EC2 client if AWS Elastic IP is configured
-        let ec2_client = if config.enabled && (config.r#type == "aws_elastic_ip" || config.r#type == "aws_elb") {
+        let ec2_client = if config.enabled
+            && (config.r#type == "aws_elastic_ip" || config.r#type == "aws_elb")
+        {
             if let Some(aws_config) = &config.aws_elastic_ip {
                 let credentials = Credentials::new(
                     &aws_config.access_key_id,
@@ -71,12 +75,12 @@ impl VipManager {
                     None,
                     "blcpg-ha",
                 );
-                
+
                 let config = aws_sdk_ec2::Config::builder()
                     .region(Region::new(aws_config.region.clone()))
                     .credentials_provider(credentials)
                     .build();
-                
+
                 Some(Ec2Client::from_conf(config))
             } else if let Some(aws_config) = &config.aws_elb {
                 let credentials = Credentials::new(
@@ -86,12 +90,12 @@ impl VipManager {
                     None,
                     "blcpg-ha",
                 );
-                
+
                 let config = aws_sdk_ec2::Config::builder()
                     .region(Region::new(aws_config.region.clone()))
                     .credentials_provider(credentials)
                     .build();
-                
+
                 Some(Ec2Client::from_conf(config))
             } else {
                 None
@@ -110,12 +114,12 @@ impl VipManager {
                     None,
                     "blcpg-ha",
                 );
-                
+
                 let config = aws_sdk_elasticloadbalancingv2::Config::builder()
                     .region(Region::new(aws_config.region.clone()))
                     .credentials_provider(credentials)
                     .build();
-                
+
                 Some(ElbClient::from_conf(config))
             } else {
                 None
@@ -165,7 +169,7 @@ impl VipManager {
 
         for vip_type in &self.config.fallback_order {
             info!("Attempting to update VIP using: {}", vip_type);
-            
+
             let result = match vip_type.as_str() {
                 "haproxy" => self.update_haproxy_primary(primary_node).await,
                 "proxysql" => self.update_proxysql_primary(primary_node).await,
@@ -195,13 +199,21 @@ impl VipManager {
     }
 
     async fn update_aws_elb_primary(&self, primary_node: &str) -> Result<()> {
-        let aws_config = self.config.aws_elb.as_ref()
+        let aws_config = self
+            .config
+            .aws_elb
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS ELB configuration not found"))?;
 
-        let elb_client = self.elb_client.as_ref()
+        let elb_client = self
+            .elb_client
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS ELB client not initialized"))?;
 
-        info!("Updating AWS ELB target group to instance: {}", primary_node);
+        info!(
+            "Updating AWS ELB target group to instance: {}",
+            primary_node
+        );
 
         // Parse primary node address (assuming format: host:port)
         let (host, _port) = self.parse_node_address(primary_node)?;
@@ -242,34 +254,43 @@ impl VipManager {
         }
 
         // Register the new primary instance as a target
-        info!("Registering new primary instance: {}:{}", host, aws_config.port);
+        info!(
+            "Registering new primary instance: {}:{}",
+            host, aws_config.port
+        );
         match elb_client
             .register_targets()
             .target_group_arn(aws_config.target_group_arn.clone())
-            .targets(aws_sdk_elasticloadbalancingv2::types::TargetDescription::builder()
-                .id(host.to_string())
-                .port(aws_config.port.into())
-                .build())
+            .targets(
+                aws_sdk_elasticloadbalancingv2::types::TargetDescription::builder()
+                    .id(host.to_string())
+                    .port(aws_config.port.into())
+                    .build(),
+            )
             .send()
             .await
         {
             Ok(_) => {
-                info!("Successfully registered target {}:{} with ELB", host, aws_config.port);
-                
+                info!(
+                    "Successfully registered target {}:{} with ELB",
+                    host, aws_config.port
+                );
+
                 // Update current primary
                 let mut current = self.current_primary.write().await;
                 *current = Some(primary_node.to_string());
-                
+
                 Ok(())
             }
-            Err(e) => {
-                Err(anyhow::anyhow!("Failed to register target with ELB: {}", e))
-            }
+            Err(e) => Err(anyhow::anyhow!("Failed to register target with ELB: {}", e)),
         }
     }
 
     async fn update_haproxy_primary(&self, primary_node: &str) -> Result<()> {
-        let haproxy_config = self.config.haproxy.as_ref()
+        let haproxy_config = self
+            .config
+            .haproxy
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("HAProxy configuration not found"))?;
 
         info!("Updating HAProxy primary to: {}", primary_node);
@@ -298,7 +319,8 @@ impl VipManager {
         };
 
         // Update HAProxy via Data Plane API
-        self.update_haproxy_backend(haproxy_config, &backend).await?;
+        self.update_haproxy_backend(haproxy_config, &backend)
+            .await?;
 
         // Update current primary
         let mut current = self.current_primary.write().await;
@@ -309,7 +331,10 @@ impl VipManager {
     }
 
     async fn update_proxysql_primary(&self, primary_node: &str) -> Result<()> {
-        let proxysql_config = self.config.proxysql.as_ref()
+        let proxysql_config = self
+            .config
+            .proxysql
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("ProxySQL configuration not found"))?;
 
         info!("Updating ProxySQL primary to: {}", primary_node);
@@ -334,7 +359,8 @@ impl VipManager {
         };
 
         // Update ProxySQL via REST API
-        self.update_proxysql_server(proxysql_config, &server).await?;
+        self.update_proxysql_server(proxysql_config, &server)
+            .await?;
 
         // Update current primary
         let mut current = self.current_primary.write().await;
@@ -345,7 +371,10 @@ impl VipManager {
     }
 
     async fn update_keepalived_primary(&self, primary_node: &str) -> Result<()> {
-        let keepalived_config = self.config.keepalived.as_ref()
+        let keepalived_config = self
+            .config
+            .keepalived
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Keepalived configuration not found"))?;
 
         info!("Updating Keepalived primary to: {}", primary_node);
@@ -366,23 +395,38 @@ impl VipManager {
         let mut current = self.current_primary.write().await;
         *current = Some(primary_node.to_string());
 
-        info!("Keepalived primary updated successfully to: {}", primary_node);
+        info!(
+            "Keepalived primary updated successfully to: {}",
+            primary_node
+        );
         Ok(())
     }
 
-    async fn update_haproxy_backend(&self, config: &HaproxyConfig, backend: &HaproxyBackend) -> Result<()> {
-        let url = format!("{}/services/haproxy/configuration/backends/{}", config.api_url, backend.name);
-        
+    async fn update_haproxy_backend(
+        &self,
+        config: &HaproxyConfig,
+        backend: &HaproxyBackend,
+    ) -> Result<()> {
+        let url = format!(
+            "{}/services/haproxy/configuration/backends/{}",
+            config.api_url, backend.name
+        );
+
         // First, try to delete existing backend
-        let delete_url = format!("{}/services/haproxy/configuration/backends/{}", config.api_url, backend.name);
-        let _ = self.client
+        let delete_url = format!(
+            "{}/services/haproxy/configuration/backends/{}",
+            config.api_url, backend.name
+        );
+        let _ = self
+            .client
             .delete(&delete_url)
             .basic_auth(&config.username, Some(&config.password))
             .send()
             .await;
 
         // Create new backend
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .basic_auth(&config.username, Some(&config.password))
             .json(backend)
@@ -391,26 +435,35 @@ impl VipManager {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Failed to update HAProxy backend: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to update HAProxy backend: {}",
+                error_text
+            ));
         }
 
         debug!("HAProxy backend updated successfully");
         Ok(())
     }
 
-    async fn update_proxysql_server(&self, config: &ProxySqlConfig, server: &ProxySqlServer) -> Result<()> {
+    async fn update_proxysql_server(
+        &self,
+        config: &ProxySqlConfig,
+        server: &ProxySqlServer,
+    ) -> Result<()> {
         let url = format!("{}/servers/{}", config.api_url, config.server_id);
-        
+
         // First, try to delete existing server
         let delete_url = format!("{}/servers/{}", config.api_url, config.server_id);
-        let _ = self.client
+        let _ = self
+            .client
             .delete(&delete_url)
             .basic_auth(&config.username, Some(&config.password))
             .send()
             .await;
 
         // Create new server
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .basic_auth(&config.username, Some(&config.password))
             .json(server)
@@ -419,14 +472,21 @@ impl VipManager {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow::anyhow!("Failed to update ProxySQL server: {}", error_text));
+            return Err(anyhow::anyhow!(
+                "Failed to update ProxySQL server: {}",
+                error_text
+            ));
         }
 
         debug!("ProxySQL server updated successfully");
         Ok(())
     }
 
-    fn generate_keepalived_config(&self, config: &KeepalivedConfig, primary_host: &str) -> Result<String> {
+    fn generate_keepalived_config(
+        &self,
+        config: &KeepalivedConfig,
+        primary_host: &str,
+    ) -> Result<String> {
         let config_content = format!(
             r#"global_defs {{
     router_id BLC_PG_HA
@@ -498,7 +558,10 @@ vrrp_instance VI_1 {{
     fn parse_node_address<'a>(&self, node_addr: &'a str) -> Result<(&'a str, &'a str)> {
         let parts: Vec<&str> = node_addr.split(':').collect();
         if parts.len() != 2 {
-            return Err(anyhow::anyhow!("Invalid node address format: {}", node_addr));
+            return Err(anyhow::anyhow!(
+                "Invalid node address format: {}",
+                node_addr
+            ));
         }
         Ok((parts[0], parts[1]))
     }
@@ -527,7 +590,10 @@ vrrp_instance VI_1 {{
             "aws_elastic_ip" => self.aws_elastic_ip_health_check().await,
             "aws_elb" => self.aws_elb_health_check().await,
             _ => {
-                warn!("Unsupported VIP type for health check: {}", self.config.r#type);
+                warn!(
+                    "Unsupported VIP type for health check: {}",
+                    self.config.r#type
+                );
                 Ok(true)
             }
         }
@@ -536,7 +602,7 @@ vrrp_instance VI_1 {{
     async fn health_check_with_fallback(&self) -> Result<bool> {
         for vip_type in &self.config.fallback_order {
             debug!("Checking health of VIP type: {}", vip_type);
-            
+
             let result = match vip_type.as_str() {
                 "haproxy" => self.haproxy_health_check().await,
                 "proxysql" => self.proxysql_health_check().await,
@@ -570,12 +636,16 @@ vrrp_instance VI_1 {{
     }
 
     async fn haproxy_health_check(&self) -> Result<bool> {
-        let haproxy_config = self.config.haproxy.as_ref()
+        let haproxy_config = self
+            .config
+            .haproxy
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("HAProxy configuration not found"))?;
 
         let url = format!("{}/services/haproxy/stats/native", haproxy_config.api_url);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .get(&url)
             .basic_auth(&haproxy_config.username, Some(&haproxy_config.password))
             .send()
@@ -585,12 +655,16 @@ vrrp_instance VI_1 {{
     }
 
     async fn proxysql_health_check(&self) -> Result<bool> {
-        let proxysql_config = self.config.proxysql.as_ref()
+        let proxysql_config = self
+            .config
+            .proxysql
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("ProxySQL configuration not found"))?;
 
         let url = format!("{}/status", proxysql_config.api_url);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .get(&url)
             .basic_auth(&proxysql_config.username, Some(&proxysql_config.password))
             .send()
@@ -605,15 +679,18 @@ vrrp_instance VI_1 {{
             .args(&["is-active", "keepalived"])
             .output()?;
 
-        let is_running = output.status.success() && 
-            String::from_utf8_lossy(&output.stdout).trim() == "active";
+        let is_running =
+            output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "active";
 
         if !is_running {
             return Ok(false);
         }
 
         // Check if keepalived configuration file exists
-        let keepalived_config = self.config.keepalived.as_ref()
+        let keepalived_config = self
+            .config
+            .keepalived
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Keepalived configuration not found"))?;
 
         let config_exists = tokio::fs::try_exists(&keepalived_config.config_file).await?;
@@ -622,10 +699,15 @@ vrrp_instance VI_1 {{
     }
 
     async fn aws_elastic_ip_health_check(&self) -> Result<bool> {
-        let aws_config = self.config.aws_elastic_ip.as_ref()
+        let aws_config = self
+            .config
+            .aws_elastic_ip
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS Elastic IP configuration not found"))?;
 
-        let ec2_client = self.ec2_client.as_ref()
+        let ec2_client = self
+            .ec2_client
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS EC2 client not initialized"))?;
 
         // Check if the Elastic IP allocation exists and is available
@@ -640,7 +722,7 @@ vrrp_instance VI_1 {{
                     if addresses.is_empty() {
                         return Ok(false);
                     }
-                    
+
                     // Check if the allocation exists (in older AWS SDK, we just check if it's not empty)
                     if !addresses.is_empty() {
                         return Ok(true);
@@ -648,15 +730,20 @@ vrrp_instance VI_1 {{
                 }
                 Ok(false)
             }
-            Err(_) => Ok(false)
+            Err(_) => Ok(false),
         }
     }
 
     async fn aws_elb_health_check(&self) -> Result<bool> {
-        let aws_config = self.config.aws_elb.as_ref()
+        let aws_config = self
+            .config
+            .aws_elb
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS ELB configuration not found"))?;
 
-        let elb_client = self.elb_client.as_ref()
+        let elb_client = self
+            .elb_client
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS ELB client not initialized"))?;
 
         // Check if the load balancer exists and is active
@@ -671,7 +758,7 @@ vrrp_instance VI_1 {{
                     if load_balancers.is_empty() {
                         return Ok(false);
                     }
-                    
+
                     // Check if the load balancer is active
                     for lb in load_balancers {
                         if let Some(state) = lb.state {
@@ -685,15 +772,20 @@ vrrp_instance VI_1 {{
                 }
                 Ok(false)
             }
-            Err(_) => Ok(false)
+            Err(_) => Ok(false),
         }
     }
 
     async fn update_aws_elastic_ip_primary(&self, primary_node: &str) -> Result<()> {
-        let aws_config = self.config.aws_elastic_ip.as_ref()
+        let aws_config = self
+            .config
+            .aws_elastic_ip
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS Elastic IP configuration not found"))?;
 
-        let ec2_client = self.ec2_client.as_ref()
+        let ec2_client = self
+            .ec2_client
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("AWS EC2 client not initialized"))?;
 
         info!("Updating AWS Elastic IP to instance: {}", primary_node);
@@ -741,20 +833,23 @@ vrrp_instance VI_1 {{
         {
             Ok(response) => {
                 if let Some(association_id) = response.association_id {
-                    info!("Elastic IP associated successfully with association ID: {}", association_id);
-                    
+                    info!(
+                        "Elastic IP associated successfully with association ID: {}",
+                        association_id
+                    );
+
                     // Update current primary
                     let mut current = self.current_primary.write().await;
                     *current = Some(primary_node.to_string());
-                    
+
                     Ok(())
                 } else {
-                    Err(anyhow::anyhow!("Failed to get association ID from AWS response"))
+                    Err(anyhow::anyhow!(
+                        "Failed to get association ID from AWS response"
+                    ))
                 }
             }
-            Err(e) => {
-                Err(anyhow::anyhow!("Failed to associate Elastic IP: {}", e))
-            }
+            Err(e) => Err(anyhow::anyhow!("Failed to associate Elastic IP: {}", e)),
         }
     }
 
@@ -762,4 +857,4 @@ vrrp_instance VI_1 {{
         info!("Shutting down VIP manager");
         Ok(())
     }
-} 
+}

@@ -31,14 +31,27 @@ pub async fn execute(client: &impl ApiClientTrait) -> Result<()> {
     println!("Healthy Nodes: {}", cluster_status.healthy_nodes);
     println!();
 
-    let table_data: Vec<NodeTable> = cluster_status.nodes
+    let table_data: Vec<NodeTable> = cluster_status
+        .nodes
         .iter()
         .map(|node| NodeTable {
             node_id: node.node_id.clone(),
-            is_leader: if node.is_leader { "Yes".green().to_string() } else { "No".yellow().to_string() },
-            is_healthy: if node.is_healthy { "Healthy".green().to_string() } else { "Unhealthy".red().to_string() },
+            is_leader: if node.is_leader {
+                "Yes".green().to_string()
+            } else {
+                "No".yellow().to_string()
+            },
+            is_healthy: if node.is_healthy {
+                "Healthy".green().to_string()
+            } else {
+                "Unhealthy".red().to_string()
+            },
             health_score: format!("{:.2}%", node.health_score),
-            is_primary: if node.is_primary { "Yes".green().to_string() } else { "No".yellow().to_string() },
+            is_primary: if node.is_primary {
+                "Yes".green().to_string()
+            } else {
+                "No".yellow().to_string()
+            },
             last_seen: node.last_seen.clone(),
         })
         .collect();
@@ -46,4 +59,4 @@ pub async fn execute(client: &impl ApiClientTrait) -> Result<()> {
     println!("{}", Table::new(table_data));
 
     Ok(())
-} 
+}

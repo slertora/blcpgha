@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
+use crate::models::{ApiResponse, VipStatus};
 use axum::response::Json;
-use crate::models::{VipStatus, ApiResponse};
 use chrono::Utc;
 
 pub async fn get_status() -> Json<ApiResponse<VipStatus>> {
@@ -17,4 +17,4 @@ pub async fn get_status() -> Json<ApiResponse<VipStatus>> {
     };
 
     Json(ApiResponse::success(vip_status))
-} 
+}

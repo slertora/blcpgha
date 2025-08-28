@@ -1,8 +1,8 @@
 // MIT License
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 
-use crate::config::RaftConfig;
 use crate::cluster::ClusterManager;
+use crate::config::RaftConfig;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -51,7 +51,7 @@ pub struct RaftNode {
 impl RaftNode {
     pub async fn new(config: RaftConfig, cluster_manager: Arc<ClusterManager>) -> Result<Self> {
         let (shutdown_tx, _shutdown_rx) = mpsc::channel(1);
-        
+
         let state = Arc::new(RwLock::new(RaftState {
             node_id: config.node_id.clone(),
             current_term: 0,
@@ -79,8 +79,9 @@ impl RaftNode {
     }
 
     pub async fn run(&self) -> Result<()> {
-        let mut interval = tokio::time::interval(Duration::from_millis(self.config.heartbeat_interval_ms));
-        
+        let mut interval =
+            tokio::time::interval(Duration::from_millis(self.config.heartbeat_interval_ms));
+
         loop {
             tokio::select! {
                 _ = interval.tick() => {
@@ -98,7 +99,7 @@ impl RaftNode {
 
     async fn tick(&self) -> Result<()> {
         let state = self.state.read().await;
-        
+
         match state.role {
             RaftRole::Follower => {
                 // Check if election timeout has passed
@@ -116,7 +117,11 @@ impl RaftNode {
         }
 
         // Broadcast Raft state to cluster
-        if let Err(e) = self.cluster_manager.broadcast_raft_state(state.clone()).await {
+        if let Err(e) = self
+            .cluster_manager
+            .broadcast_raft_state(state.clone())
+            .await
+        {
             error!("Failed to broadcast Raft state: {}", e);
         }
 
@@ -125,7 +130,7 @@ impl RaftNode {
 
     pub async fn propose_command(&self, command: Vec<u8>) -> Result<u64> {
         let mut state = self.state.write().await;
-        
+
         if state.role != RaftRole::Leader {
             return Err(anyhow::anyhow!("Not leader"));
         }
@@ -150,7 +155,7 @@ impl RaftNode {
     pub async fn add_peer(&self, peer_id: String, peer_addr: String) -> Result<()> {
         let mut state = self.state.write().await;
         state.peers.push(peer_addr.clone());
-        
+
         info!("Added peer {} at {}", peer_id, peer_addr);
         Ok(())
     }
@@ -158,7 +163,7 @@ impl RaftNode {
     pub async fn remove_peer(&self, peer_id: String) -> Result<()> {
         let mut state = self.state.write().await;
         state.peers.retain(|p| p != &peer_id);
-        
+
         info!("Removed peer {}", peer_id);
         Ok(())
     }
@@ -182,5 +187,3 @@ impl RaftNode {
         Ok(())
     }
 }
-
- 

@@ -8,4 +8,4 @@ pub async fn execute(_client: &ApiClient, node_id: &str) -> Result<()> {
     println!("Node info command for node: {}", node_id);
     // TODO: Implement node info
     Ok(())
-} 
+}

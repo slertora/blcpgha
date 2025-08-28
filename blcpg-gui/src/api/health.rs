@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Santiago Lertora <santiagolertora@gmail.com>
 // Licensed under the MIT License
 
+use crate::models::{ApiResponse, HealthCheck, HealthLevel, HealthStatus};
 use axum::response::Json;
-use crate::models::{HealthStatus, HealthLevel, HealthCheck, ApiResponse};
 use chrono::Utc;
 
 pub async fn get_health() -> Json<ApiResponse<HealthStatus>> {
@@ -33,4 +33,4 @@ pub async fn get_health() -> Json<ApiResponse<HealthStatus>> {
     };
 
     Json(ApiResponse::success(health_status))
-} 
+}

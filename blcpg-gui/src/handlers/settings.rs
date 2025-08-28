@@ -4,7 +4,8 @@
 use axum::response::Html;
 
 pub async fn settings_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -381,5 +382,6 @@ pub async fn settings_page() -> Html<&'static str> {
     </script>
 </body>
 </html>
-    "#)
-} 
+    "#,
+    )
+}

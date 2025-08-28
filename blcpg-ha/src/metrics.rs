@@ -5,13 +5,7 @@ use crate::config::MetricsConfig;
 use crate::health::HealthChecker;
 use crate::raft::RaftNode;
 use anyhow::Result;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-    Router,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
 use prometheus_client::{
     encoding::text::encode,
     metrics::{counter::Counter, gauge::Gauge, histogram::Histogram},
@@ -161,15 +155,23 @@ impl MetricsServer {
                 interval.tick().await;
 
                 // Update uptime
-                metrics.uptime_seconds.set(start_time.elapsed().as_secs() as i64);
+                metrics
+                    .uptime_seconds
+                    .set(start_time.elapsed().as_secs() as i64);
 
                 // Update health metrics
                 let health_status = health_checker.get_status().await;
-                metrics.health_status.set(if health_status.is_healthy { 1 } else { 0 });
+                metrics
+                    .health_status
+                    .set(if health_status.is_healthy { 1 } else { 0 });
                 metrics.health_score.set(health_status.score as i64);
-                metrics.is_primary.set(if health_status.is_primary { 1 } else { 0 });
+                metrics
+                    .is_primary
+                    .set(if health_status.is_primary { 1 } else { 0 });
                 metrics.error_count.inc_by(health_status.error_count as u64);
-                metrics.consecutive_failures.inc_by(health_status.consecutive_failures as u64);
+                metrics
+                    .consecutive_failures
+                    .inc_by(health_status.consecutive_failures as u64);
 
                 // Update replication lag
                 if let Some(lag) = health_status.replication_lag {
@@ -181,10 +183,18 @@ impl MetricsServer {
 
                 // Update Raft metrics
                 let raft_state = raft_node.get_state().await;
-                metrics.raft_is_leader.set(if raft_node.is_leader().await { 1 } else { 0 });
-                metrics.raft_current_term.set(raft_state.current_term as i64);
-                metrics.raft_commit_index.set(raft_state.commit_index as i64);
-                metrics.raft_last_applied.set(raft_state.last_applied as i64);
+                metrics
+                    .raft_is_leader
+                    .set(if raft_node.is_leader().await { 1 } else { 0 });
+                metrics
+                    .raft_current_term
+                    .set(raft_state.current_term as i64);
+                metrics
+                    .raft_commit_index
+                    .set(raft_state.commit_index as i64);
+                metrics
+                    .raft_last_applied
+                    .set(raft_state.last_applied as i64);
 
                 debug!("Metrics updated");
             }
@@ -202,8 +212,7 @@ impl MetricsServer {
 
         // Start server
         let listener = tokio::net::TcpListener::bind(&addr).await?;
-        axum::serve(listener, app.into_make_service())
-            .await?;
+        axum::serve(listener, app.into_make_service()).await?;
 
         Ok(())
     }
@@ -211,13 +220,15 @@ impl MetricsServer {
 
 async fn metrics_handler(
     State(registry): State<Arc<Registry>>,
-    ) -> Result<impl IntoResponse, (StatusCode, String)> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     let mut buffer = String::new();
-    encode(&mut buffer, &registry)
-        .map_err(|e| {
-            error!("Failed to encode metrics: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to encode metrics".to_string())
-        })?;
+    encode(&mut buffer, &registry).map_err(|e| {
+        error!("Failed to encode metrics: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to encode metrics".to_string(),
+        )
+    })?;
 
     Ok((
         StatusCode::OK,
@@ -235,4 +246,4 @@ pub async fn record_health_check_duration(duration: Duration) {
 pub async fn record_failover_event() {
     // This would be called when a failover occurs
     info!("Failover event recorded");
-} 
+}
