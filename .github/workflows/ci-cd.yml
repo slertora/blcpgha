@@ -1,0 +1,375 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ rustmaster ]
+  pull_request:
+    branches: [ rustmaster ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev pkg-config libssl-dev
+    
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    
+    - name: Run tests
+      run: cargo test --verbose --all
+
+  build:
+    name: Build for Linux
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-gnu
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev pkg-config libssl-dev
+    
+    - name: Build release binaries
+      run: |
+        cargo build --release --target x86_64-unknown-linux-gnu
+        
+    - name: Create deployment package
+      run: |
+        mkdir -p deploy/bin
+        mkdir -p deploy/config
+        mkdir -p deploy/scripts
+        
+        # Copy binaries
+        cp target/x86_64-unknown-linux-gnu/release/blcpg-ha deploy/bin/
+        cp target/x86_64-unknown-linux-gnu/release/blcpg-cli deploy/bin/
+        cp target/x86_64-unknown-linux-gnu/release/blcpg-gui deploy/bin/
+        
+        # Copy config files
+        cp blcpg-ha/config.toml deploy/config/blcpg-ha.toml
+        cp blcpg-cli/config.toml deploy/config/blcpg-cli.toml
+        cp blcpg-gui/config.toml deploy/config/blcpg-gui.toml
+        
+        # Create deployment scripts
+        cat > deploy/scripts/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "Installing BLC PostgreSQL HA..."
+        
+        # Create directories
+        sudo mkdir -p /opt/blcpgha/{bin,config,logs}
+        
+        # Copy binaries
+        sudo cp bin/* /opt/blcpgha/bin/
+        sudo chmod +x /opt/blcpgha/bin/*
+        
+        # Copy config files
+        sudo cp config/* /opt/blcpgha/config/
+        
+        # Create systemd services
+        sudo tee /etc/systemd/system/blcpg-ha.service > /dev/null << 'SYSTEMD'
+        [Unit]
+        Description=BLC PostgreSQL HA Agent
+        After=network.target postgresql.service
+        
+        [Service]
+        Type=simple
+        User=postgres
+        Group=postgres
+        ExecStart=/opt/blcpgha/bin/blcpg-ha --config /opt/blcpgha/config/blcpg-ha.toml
+        Restart=always
+        RestartSec=5
+        StandardOutput=journal
+        StandardError=journal
+        
+        [Install]
+        WantedBy=multi-user.target
+        SYSTEMD
+        
+        sudo tee /etc/systemd/system/blcpg-gui.service > /dev/null << 'SYSTEMD'
+        [Unit]
+        Description=BLC PostgreSQL HA GUI
+        After=network.target blcpg-ha.service
+        
+        [Service]
+        Type=simple
+        User=postgres
+        Group=postgres
+        ExecStart=/opt/blcpgha/bin/blcpg-gui --config /opt/blcpgha/config/blcpg-gui.toml
+        Restart=always
+        RestartSec=5
+        StandardOutput=journal
+        StandardError=journal
+        
+        [Install]
+        WantedBy=multi-user.target
+        SYSTEMD
+        
+        # Reload systemd and enable services
+        sudo systemctl daemon-reload
+        sudo systemctl enable blcpg-ha blcpg-gui
+        
+        # Set permissions
+        sudo chown -R postgres:postgres /opt/blcpgha
+        
+        echo "Installation completed!"
+        echo "Start services with:"
+        echo "  sudo systemctl start blcpg-ha"
+        echo "  sudo systemctl start blcpg-gui"
+        EOF
+        
+        chmod +x deploy/scripts/install.sh
+        
+        # Create update script
+        cat > deploy/scripts/update.sh << 'EOF'
+        #!/bin/bash
+        set -e
+        
+        echo "Updating BLC PostgreSQL HA..."
+        
+        # Stop services
+        sudo systemctl stop blcpg-gui blcpg-ha || true
+        
+        # Backup current binaries
+        sudo cp /opt/blcpgha/bin/blcpg-ha /opt/blcpgha/bin/blcpg-ha.backup.$(date +%Y%m%d-%H%M%S) || true
+        sudo cp /opt/blcpgha/bin/blcpg-gui /opt/blcpgha/bin/blcpg-gui.backup.$(date +%Y%m%d-%H%M%S) || true
+        sudo cp /opt/blcpgha/bin/blcpg-cli /opt/blcpgha/bin/blcpg-cli.backup.$(date +%Y%m%d-%H%M%S) || true
+        
+        # Update binaries
+        sudo cp bin/* /opt/blcpgha/bin/
+        sudo chmod +x /opt/blcpgha/bin/*
+        
+        # Update config if needed (preserve existing)
+        for config in config/*; do
+          config_name=$(basename "$config")
+          if [ ! -f "/opt/blcpgha/config/$config_name" ]; then
+            sudo cp "$config" "/opt/blcpgha/config/"
+          fi
+        done
+        
+        # Set permissions
+        sudo chown -R postgres:postgres /opt/blcpgha
+        
+        # Start services
+        sudo systemctl start blcpg-ha
+        sleep 5
+        sudo systemctl start blcpg-gui
+        
+        # Check status
+        sudo systemctl status blcpg-ha --no-pager
+        sudo systemctl status blcpg-gui --no-pager
+        
+        echo "Update completed!"
+        EOF
+        
+        chmod +x deploy/scripts/update.sh
+        
+        # Create health check script
+        cat > deploy/scripts/health-check.sh << 'EOF'
+        #!/bin/bash
+        
+        echo "BLC PostgreSQL HA Health Check"
+        echo "================================"
+        
+        # Check services
+        echo "Service Status:"
+        sudo systemctl is-active blcpg-ha || echo "blcpg-ha: INACTIVE"
+        sudo systemctl is-active blcpg-gui || echo "blcpg-gui: INACTIVE"
+        
+        # Check ports
+        echo -e "\nPort Status:"
+        netstat -tlnp 2>/dev/null | grep -E ":(8080|3000)" || echo "No services listening on expected ports"
+        
+        # Check API health
+        echo -e "\nAPI Health:"
+        curl -s -m 5 http://localhost:8080/api/v1/health 2>/dev/null | jq . || echo "API health check failed"
+        
+        # Check logs for errors
+        echo -e "\nRecent Errors:"
+        sudo journalctl -u blcpg-ha --since "5 minutes ago" --grep ERROR || echo "No recent errors in blcpg-ha"
+        sudo journalctl -u blcpg-gui --since "5 minutes ago" --grep ERROR || echo "No recent errors in blcpg-gui"
+        EOF
+        
+        chmod +x deploy/scripts/health-check.sh
+        
+        # Create tar package
+        tar -czf blcpgha-linux-x86_64.tar.gz -C deploy .
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: blcpgha-linux-x86_64
+        path: blcpgha-linux-x86_64.tar.gz
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/rustmaster' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: blcpgha-linux-x86_64
+    
+    - name: Extract deployment package
+      run: |
+        tar -xzf blcpgha-linux-x86_64.tar.gz
+        
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H 187.33.155.182 >> ~/.ssh/known_hosts
+        ssh-keyscan -H 187.33.144.18 >> ~/.ssh/known_hosts
+        ssh-keyscan -H 187.33.147.49 >> ~/.ssh/known_hosts
+    
+    - name: Deploy to Master Server (postgre1)
+      run: |
+        echo "Deploying to Master Server (187.33.155.182)..."
+        
+        # Create deployment directory on remote server
+        ssh -i ~/.ssh/deploy_key root@187.33.155.182 'mkdir -p /tmp/blcpgha-deploy'
+        
+        # Upload deployment package
+        scp -i ~/.ssh/deploy_key blcpgha-linux-x86_64.tar.gz root@187.33.155.182:/tmp/blcpgha-deploy/
+        
+        # Extract and install
+        ssh -i ~/.ssh/deploy_key root@187.33.155.182 '
+          cd /tmp/blcpgha-deploy
+          tar -xzf blcpgha-linux-x86_64.tar.gz
+          
+          # Run installation/update
+          if [ -d "/opt/blcpgha" ]; then
+            echo "Updating existing installation..."
+            ./scripts/update.sh
+          else
+            echo "Installing for the first time..."
+            ./scripts/install.sh
+          fi
+          
+          # Cleanup
+          cd /
+          rm -rf /tmp/blcpgha-deploy
+        '
+        
+        echo "Master server deployment completed!"
+    
+    - name: Deploy to Replica Server 1 (postgresql2)
+      run: |
+        echo "Deploying to Replica Server 1 (187.33.144.18)..."
+        
+        ssh -i ~/.ssh/deploy_key root@187.33.144.18 'mkdir -p /tmp/blcpgha-deploy'
+        scp -i ~/.ssh/deploy_key blcpgha-linux-x86_64.tar.gz root@187.33.144.18:/tmp/blcpgha-deploy/
+        
+        ssh -i ~/.ssh/deploy_key root@187.33.144.18 '
+          cd /tmp/blcpgha-deploy
+          tar -xzf blcpgha-linux-x86_64.tar.gz
+          
+          if [ -d "/opt/blcpgha" ]; then
+            ./scripts/update.sh
+          else
+            ./scripts/install.sh
+          fi
+          
+          cd /
+          rm -rf /tmp/blcpgha-deploy
+        '
+        
+        echo "Replica server 1 deployment completed!"
+    
+    - name: Deploy to Replica Server 2 (postgresql3)
+      run: |
+        echo "Deploying to Replica Server 2 (187.33.147.49)..."
+        
+        ssh -i ~/.ssh/deploy_key root@187.33.147.49 'mkdir -p /tmp/blcpgha-deploy'
+        scp -i ~/.ssh/deploy_key blcpgha-linux-x86_64.tar.gz root@187.33.147.49:/tmp/blcpgha-deploy/
+        
+        ssh -i ~/.ssh/deploy_key root@187.33.147.49 '
+          cd /tmp/blcpgha-deploy
+          tar -xzf blcpgha-linux-x86_64.tar.gz
+          
+          if [ -d "/opt/blcpgha" ]; then
+            ./scripts/update.sh
+          else
+            ./scripts/install.sh
+          fi
+          
+          cd /
+          rm -rf /tmp/blcpgha-deploy
+        '
+        
+        echo "Replica server 2 deployment completed!"
+    
+    - name: Post-deployment Health Checks
+      run: |
+        echo "Running post-deployment health checks..."
+        
+        # Wait for services to start
+        sleep 30
+        
+        # Check each server
+        for server in 187.33.155.182 187.33.144.18 187.33.147.49; do
+          echo "Checking health of $server..."
+          ssh -i ~/.ssh/deploy_key root@$server './opt/blcpgha/scripts/health-check.sh' || echo "Health check failed for $server"
+        done
+        
+        echo "Health checks completed!"
+    
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Deployment completed successfully!"
+          echo "Services are running on:"
+          echo "  - Master (postgre1): http://187.33.155.182:3000"
+          echo "  - Replica 1 (postgresql2): http://187.33.144.18:3000"
+          echo "  - Replica 2 (postgresql3): http://187.33.147.49:3000"
+        else
+          echo "❌ Deployment failed!"
+        fi

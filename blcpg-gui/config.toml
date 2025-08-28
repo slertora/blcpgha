@@ -1,0 +1,15 @@
+[server]
+host = "0.0.0.0"
+port = 3000
+log_level = "info"
+
+[api]
+base_url = "http://localhost:8080"
+timeout = 30
+retries = 3
+
+[ui]
+title = "BLC PostgreSQL HA"
+theme = "dark"
+refresh_interval = 5
+auto_refresh = true 
